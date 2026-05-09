@@ -73,7 +73,7 @@ class WsfWindow(Adw.ApplicationWindow):
         content.set_hexpand(True)
         content.set_halign(Gtk.Align.FILL)
         toolbar_view.set_content(content)
-        self.set_size_request(360, 0)
+        self.set_size_request(360, -1)
 
         self._scroll_group = Adw.PreferencesGroup(title="Scroll sensitivity")
         content.append(self._scroll_group)
@@ -346,7 +346,12 @@ class WsfWindow(Adw.ApplicationWindow):
             self._show_toast("Clipboard unavailable.")
             return
         clipboard = display.get_clipboard()
-        clipboard.set_text(self._last_doctor_output)
+        try:
+            provider = Gdk.ContentProvider.new_for_value(self._last_doctor_output)
+            clipboard.set_content(provider)
+        except Exception:
+            self._show_toast("Clipboard unavailable.")
+            return
         self._show_toast("Diagnostics copied to clipboard.")
 
     def _run_wsf(self, args):

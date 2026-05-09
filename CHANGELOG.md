@@ -6,6 +6,12 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning for t
 
 ## [Unreleased]
 
+### Fixed
+- GUI: copying diagnostics now uses GTK4 clipboard content providers instead of
+  the removed `Gdk.Clipboard.set_text()` API.
+- GUI: avoid requesting a zero-height window minimum, which could trigger
+  pixman invalid-rectangle warnings on some GTK/libadwaita stacks.
+
 ## [0.3.0] - 2026-05-09
 
 ### Added

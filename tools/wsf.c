@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 static bool wsf_run_command(const char *cmd, char *buf, size_t len);
@@ -307,7 +308,7 @@ static int wsf_hyprland_apply_touchpad_scroll(double factor, bool verbose) {
 
 	wsf_hyprland_state_collect(&state);
 	if (!state.running) {
-		if (verbose && (state.session_hint || state.hyprctl_found)) {
+		if (verbose && state.session_hint) {
 			fprintf(stderr, "hyprland native backend unavailable: hyprctl is not connected to a running Hyprland session.\n");
 		}
 		return 0;
@@ -768,7 +769,7 @@ static void wsf_print_hyprland_status(
 	const struct wsf_hyprland_state *state,
 	bool always
 ) {
-	if (!always && !state->session_hint && !state->hyprctl_found && !state->running) {
+	if (!always && !state->session_hint && !state->running) {
 		return;
 	}
 
@@ -1074,6 +1075,7 @@ static int wsf_cmd_status(bool json) {
 
 static bool wsf_run_command(const char *cmd, char *buf, size_t len) {
 	FILE *pipe = NULL;
+	int rc = 0;
 
 	if (buf == NULL || len == 0) {
 		return false;
@@ -1090,7 +1092,12 @@ static bool wsf_run_command(const char *cmd, char *buf, size_t len) {
 		return false;
 	}
 
-	pclose(pipe);
+	rc = pclose(pipe);
+	if (rc == -1 || !WIFEXITED(rc) || WEXITSTATUS(rc) != 0) {
+		buf[0] = '\0';
+		return false;
+	}
+
 	buf[strcspn(buf, "\n")] = '\0';
 	return true;
 }

@@ -24,6 +24,7 @@ WSF adjusts touchpad sensitivity when the compositor does not expose enough user
 - Pinch rotate factor.
 - GNOME Wayland support through a guarded per-user preload library.
 - Hyprland scroll support through native `hyprctl`.
+- Experimental Hyprland pinch zoom/rotate support through targeted gestures-only preload.
 
 WSF is per-user and reversible. It does **not** use `/etc/ld.so.preload`.
 
@@ -123,7 +124,28 @@ No logout/login is required for Hyprland scroll changes.
 
 Hyprland currently exposes one native touchpad scroll factor shared by vertical and horizontal scrolling. For that reason, WSF keeps the vertical and horizontal scroll controls synchronized on Hyprland.
 
-Pinch zoom/rotate are not currently available as native Hyprland client sensitivity settings.
+Hyprland does not currently expose native client pinch zoom/rotate sensitivity
+settings. WSF can test those controls with a targeted gestures-only preload
+loaded into the `Hyprland` process at compositor startup.
+
+Add this pattern to the script/wrapper that launches Hyprland, before
+`exec Hyprland ...`:
+
+```bash
+wsf_lib="${WSF_LIB_PATH:-$HOME/.local/lib/wayland-scroll-factor/libwsf_preload.so}"
+if [ -r "$wsf_lib" ]; then
+  export WSF_TARGETS="${WSF_TARGETS:-Hyprland}"
+  export WSF_HYPRLAND_GESTURES_ONLY="${WSF_HYPRLAND_GESTURES_ONLY:-1}"
+  export WSF_DEFER_PRUNE_UNTIL_TARGET="${WSF_DEFER_PRUNE_UNTIL_TARGET:-1}"
+  case ":${LD_PRELOAD:-}:" in
+    *":$wsf_lib:"*) ;;
+    *) export LD_PRELOAD="$wsf_lib${LD_PRELOAD:+:$LD_PRELOAD}" ;;
+  esac
+fi
+```
+
+Then restart Hyprland. Once this preload is mapped in `Hyprland`, pinch factor
+changes should be picked up live from the WSF config.
 
 ### Hyprland Persistence
 
@@ -216,7 +238,8 @@ Requirements:
 
 - GNOME enable/disable requires logout/login because `gnome-shell` must load or unload the preload library.
 - Hyprland has one native touchpad scroll factor, not independent vertical/horizontal factors.
-- Hyprland does not currently expose general native pinch zoom/rotate sensitivity for client apps.
+- Hyprland pinch zoom/rotate support is experimental and requires launching
+  Hyprland with the targeted gestures-only preload.
 - WSF is a workaround until compositors expose better upstream controls.
 
 ---

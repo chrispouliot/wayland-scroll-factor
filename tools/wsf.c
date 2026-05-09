@@ -26,9 +26,23 @@ struct wsf_runtime_state {
 	bool gnome_shell_ld_preload_present;
 	bool gnome_shell_ld_preload_matches;
 	bool gnome_shell_library_mapped;
+	bool hyprland_found;
+	bool hyprland_ld_preload_present;
+	bool hyprland_ld_preload_matches;
+	bool hyprland_library_mapped;
+	bool hyprland_targets_present;
+	bool hyprland_gestures_only_present;
+	bool hyprland_gestures_present;
+	bool hyprland_defer_prune_present;
 	pid_t gnome_shell_pid;
+	pid_t hyprland_pid;
 	char user_manager_ld_preload[512];
 	char gnome_shell_ld_preload[512];
+	char hyprland_ld_preload[512];
+	char hyprland_targets[256];
+	char hyprland_gestures_only[64];
+	char hyprland_gestures[64];
+	char hyprland_defer_prune[64];
 };
 
 struct wsf_hyprland_state {
@@ -777,8 +791,113 @@ static void wsf_print_hyprland_status(
 
 	if (state->running) {
 		printf("hyprland backend: native scroll apply available (single factor for vertical + horizontal)\n");
-		printf("hyprland backend: pinch zoom/rotate scaling not exposed natively\n");
+		printf("hyprland backend: native pinch zoom/rotate scaling not exposed\n");
 	}
+}
+
+static void wsf_print_hyprland_preload_json_field(
+	const struct wsf_runtime_state *runtime
+) {
+	printf("\"hyprland_preload\":{");
+	printf("\"process_found\":%s,", runtime->hyprland_found ? "true" : "false");
+	printf("\"pid\":%d,", runtime->hyprland_found ? (int) runtime->hyprland_pid : -1);
+	printf("\"ld_preload\":");
+	if (runtime->hyprland_ld_preload_present) {
+		wsf_print_json_string(runtime->hyprland_ld_preload);
+	} else {
+		wsf_print_json_string(NULL);
+	}
+	printf(",");
+	printf(
+		"\"preload_matches\":%s,",
+		runtime->hyprland_ld_preload_matches ? "true" : "false"
+	);
+	printf(
+		"\"library_mapped\":%s,",
+		runtime->hyprland_library_mapped ? "true" : "false"
+	);
+	printf("\"WSF_TARGETS\":");
+	if (runtime->hyprland_targets_present) {
+		wsf_print_json_string(runtime->hyprland_targets);
+	} else {
+		wsf_print_json_string(NULL);
+	}
+	printf(",");
+	printf("\"WSF_HYPRLAND_GESTURES_ONLY\":");
+	if (runtime->hyprland_gestures_only_present) {
+		wsf_print_json_string(runtime->hyprland_gestures_only);
+	} else {
+		wsf_print_json_string(NULL);
+	}
+	printf(",");
+	printf("\"WSF_HYPRLAND_GESTURES\":");
+	if (runtime->hyprland_gestures_present) {
+		wsf_print_json_string(runtime->hyprland_gestures);
+	} else {
+		wsf_print_json_string(NULL);
+	}
+	printf(",");
+	printf("\"WSF_DEFER_PRUNE_UNTIL_TARGET\":");
+	if (runtime->hyprland_defer_prune_present) {
+		wsf_print_json_string(runtime->hyprland_defer_prune);
+	} else {
+		wsf_print_json_string(NULL);
+	}
+	printf("}");
+}
+
+static void wsf_print_hyprland_preload_status(
+	const struct wsf_runtime_state *runtime,
+	bool always
+) {
+	if (!always && !runtime->hyprland_found) {
+		return;
+	}
+
+	if (!runtime->hyprland_found) {
+		printf("hyprland gesture preload: not running\n");
+		return;
+	}
+
+	printf("hyprland pid: %d\n", (int) runtime->hyprland_pid);
+	if (runtime->hyprland_ld_preload_present) {
+		printf(
+			"hyprland LD_PRELOAD: %s (%s)\n",
+			runtime->hyprland_ld_preload,
+			runtime->hyprland_ld_preload_matches ? "includes WSF" : "does not include WSF"
+		);
+	} else {
+		printf("hyprland LD_PRELOAD: not set\n");
+	}
+	printf(
+		"hyprland library mapped: %s\n",
+		runtime->hyprland_library_mapped ? "yes" : "no"
+	);
+	if (runtime->hyprland_targets_present) {
+		printf("hyprland WSF_TARGETS: %s\n", runtime->hyprland_targets);
+	}
+	if (runtime->hyprland_gestures_only_present) {
+		printf(
+			"hyprland WSF_HYPRLAND_GESTURES_ONLY: %s\n",
+			runtime->hyprland_gestures_only
+		);
+	}
+	if (runtime->hyprland_gestures_present) {
+		printf(
+			"hyprland WSF_HYPRLAND_GESTURES: %s\n",
+			runtime->hyprland_gestures
+		);
+	}
+	if (runtime->hyprland_defer_prune_present) {
+		printf(
+			"hyprland WSF_DEFER_PRUNE_UNTIL_TARGET: %s\n",
+			runtime->hyprland_defer_prune
+		);
+	}
+	printf(
+		"hyprland gesture preload: %s\n",
+		runtime->hyprland_library_mapped ? "active" : "inactive"
+	);
 }
 
 static int wsf_cmd_status(bool json) {
@@ -850,6 +969,8 @@ static int wsf_cmd_status(bool json) {
 		printf("\"gnome_shell_library_mapped\":%s,", runtime.gnome_shell_library_mapped ? "true" : "false");
 		wsf_print_hyprland_json_field(&hyprland);
 		printf(",");
+		wsf_print_hyprland_preload_json_field(&runtime);
+		printf(",");
 		printf("\"config\":");
 		wsf_print_json_string(config_path);
 		printf(",");
@@ -894,6 +1015,7 @@ static int wsf_cmd_status(bool json) {
 		);
 	}
 	wsf_print_hyprland_status(&hyprland, false);
+	wsf_print_hyprland_preload_status(&runtime, false);
 	if (config_path != NULL) {
 		bool config_present = access(config_path, F_OK) == 0;
 		printf(
@@ -926,12 +1048,21 @@ static int wsf_cmd_status(bool json) {
 	}
 	if (hyprland.running) {
 		printf("runtime scroll apply: active via Hyprland native backend\n");
+		if (runtime.hyprland_library_mapped) {
+			printf("runtime gesture reload: active via Hyprland gestures-only preload\n");
+		} else {
+			printf("runtime gesture reload: inactive; restart Hyprland with WSF gestures-only preload to test pinch controls\n");
+		}
 	} else if (runtime.gnome_shell_library_mapped) {
 		printf("runtime config reload: active (factor changes should apply without logout)\n");
 	} else {
 		printf("runtime config reload: pending (GNOME Shell has not loaded WSF yet)\n");
 	}
-	printf("note: logout/login required after preload enable/disable\n");
+	if (hyprland.running) {
+		printf("note: Hyprland scroll changes apply live; restart Hyprland only to load/unload gesture preload\n");
+	} else {
+		printf("note: logout/login required after preload enable/disable\n");
+	}
 	if (env_present && !runtime.user_manager_matches) {
 		printf("hint: run `systemctl --user daemon-reexec`, then log out/in.\n");
 	}
@@ -1187,27 +1318,72 @@ static void wsf_runtime_state_collect(
 		);
 	}
 
-	if (!wsf_find_newest_pid_by_name("gnome-shell", &state->gnome_shell_pid)) {
-		return;
-	}
-
-	state->gnome_shell_found = true;
-	if (wsf_read_pid_environ_value(
-		state->gnome_shell_pid,
-		"LD_PRELOAD",
-		state->gnome_shell_ld_preload,
-		sizeof(state->gnome_shell_ld_preload))) {
-		state->gnome_shell_ld_preload_present = true;
-		state->gnome_shell_ld_preload_matches = wsf_preload_list_contains(
+	if (wsf_find_newest_pid_by_name("gnome-shell", &state->gnome_shell_pid)) {
+		state->gnome_shell_found = true;
+		if (wsf_read_pid_environ_value(
+			state->gnome_shell_pid,
+			"LD_PRELOAD",
 			state->gnome_shell_ld_preload,
-			lib_path
+			sizeof(state->gnome_shell_ld_preload))) {
+			state->gnome_shell_ld_preload_present = true;
+			state->gnome_shell_ld_preload_matches = wsf_preload_list_contains(
+				state->gnome_shell_ld_preload,
+				lib_path
+			);
+		}
+
+		state->gnome_shell_library_mapped = wsf_pid_maps_contains(
+			state->gnome_shell_pid,
+			"libwsf_preload.so"
 		);
 	}
 
-	state->gnome_shell_library_mapped = wsf_pid_maps_contains(
-		state->gnome_shell_pid,
-		"libwsf_preload.so"
-	);
+	if (wsf_find_newest_pid_by_name("Hyprland", &state->hyprland_pid)) {
+		state->hyprland_found = true;
+		if (wsf_read_pid_environ_value(
+			state->hyprland_pid,
+			"LD_PRELOAD",
+			state->hyprland_ld_preload,
+			sizeof(state->hyprland_ld_preload))) {
+			state->hyprland_ld_preload_present = true;
+			state->hyprland_ld_preload_matches = wsf_preload_list_contains(
+				state->hyprland_ld_preload,
+				lib_path
+			);
+		}
+		if (wsf_read_pid_environ_value(
+			state->hyprland_pid,
+			"WSF_TARGETS",
+			state->hyprland_targets,
+			sizeof(state->hyprland_targets))) {
+			state->hyprland_targets_present = true;
+		}
+		if (wsf_read_pid_environ_value(
+			state->hyprland_pid,
+			"WSF_HYPRLAND_GESTURES_ONLY",
+			state->hyprland_gestures_only,
+			sizeof(state->hyprland_gestures_only))) {
+			state->hyprland_gestures_only_present = true;
+		}
+		if (wsf_read_pid_environ_value(
+			state->hyprland_pid,
+			"WSF_HYPRLAND_GESTURES",
+			state->hyprland_gestures,
+			sizeof(state->hyprland_gestures))) {
+			state->hyprland_gestures_present = true;
+		}
+		if (wsf_read_pid_environ_value(
+			state->hyprland_pid,
+			"WSF_DEFER_PRUNE_UNTIL_TARGET",
+			state->hyprland_defer_prune,
+			sizeof(state->hyprland_defer_prune))) {
+			state->hyprland_defer_prune_present = true;
+		}
+		state->hyprland_library_mapped = wsf_pid_maps_contains(
+			state->hyprland_pid,
+			"libwsf_preload.so"
+		);
+	}
 }
 
 static bool wsf_find_libinput_from_ldconfig(char *buf, size_t len) {
@@ -1479,6 +1655,8 @@ static int wsf_cmd_doctor(bool json) {
 		printf("\"gnome_shell_library_mapped\":%s,", runtime.gnome_shell_library_mapped ? "true" : "false");
 		wsf_print_hyprland_json_field(&hyprland);
 		printf(",");
+		wsf_print_hyprland_preload_json_field(&runtime);
+		printf(",");
 		printf("\"config\":");
 		wsf_print_json_string(config_path);
 		printf(",");
@@ -1571,6 +1749,7 @@ static int wsf_cmd_doctor(bool json) {
 		printf("gnome-shell: not running\n");
 	}
 	wsf_print_hyprland_status(&hyprland, true);
+	wsf_print_hyprland_preload_status(&runtime, true);
 	if (config_path != NULL) {
 		printf(
 			"config: %s (%s)\n",
@@ -1610,6 +1789,11 @@ static int wsf_cmd_doctor(bool json) {
 	wsf_doctor_symbols_print(&symbols);
 	if (hyprland.running) {
 		printf("runtime scroll apply: active via Hyprland native backend\n");
+		if (runtime.hyprland_library_mapped) {
+			printf("runtime gesture reload: active via Hyprland gestures-only preload\n");
+		} else {
+			printf("runtime gesture reload: inactive; launch Hyprland with WSF_TARGETS=Hyprland and WSF_HYPRLAND_GESTURES_ONLY=1 to test pinch controls\n");
+		}
 	} else if (runtime.gnome_shell_library_mapped) {
 		printf("runtime config reload: active (factor changes should apply live)\n");
 	} else {
@@ -1627,7 +1811,11 @@ static int wsf_cmd_doctor(bool json) {
 		!runtime.gnome_shell_ld_preload_present) {
 		printf("note: WSF strips itself from child LD_PRELOAD after loading to avoid inherited-preload issues.\n");
 	}
-	printf("note: logout/login required after preload enable/disable\n");
+	if (hyprland.running) {
+		printf("note: Hyprland scroll changes apply live; restart Hyprland only to load/unload gesture preload\n");
+	} else {
+		printf("note: logout/login required after preload enable/disable\n");
+	}
 	return 0;
 }
 

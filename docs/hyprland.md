@@ -10,8 +10,8 @@ Hyprland already exposes a native touchpad scroll setting:
 hyprctl keyword input:touchpad:scroll_factor 0.35
 ```
 
-WSF uses that native runtime setting instead of patching Hyprland and instead
-of enabling the preload library inside Hyprland by default.
+WSF uses that native runtime setting for scroll instead of patching Hyprland.
+The preload library is not loaded inside Hyprland by default.
 
 ## Current Behavior
 
@@ -35,8 +35,47 @@ of enabling the preload library inside Hyprland by default.
   clamps higher values when applying through `hyprctl`.
 - Pinch zoom and pinch rotate sensitivity are not exposed as general native
   Hyprland settings for client applications.
-- WSF's preload library remains GNOME-focused by default to avoid double
-  scaling on Hyprland.
+- WSF can test pinch zoom/rotate through a targeted gestures-only preload in
+  the `Hyprland` process.
+- WSF's scroll preload hooks stay disabled on Hyprland by default to avoid
+  double scaling, because scroll is already handled by Hyprland's native
+  `scroll_factor`.
+
+## Experimental Pinch Support
+
+To test pinch zoom/rotate, launch Hyprland with WSF loaded only in the
+compositor process and only for gesture hooks:
+
+```bash
+wsf_lib="${WSF_LIB_PATH:-$HOME/.local/lib/wayland-scroll-factor/libwsf_preload.so}"
+if [ -r "$wsf_lib" ]; then
+  export WSF_TARGETS="${WSF_TARGETS:-Hyprland}"
+  export WSF_HYPRLAND_GESTURES_ONLY="${WSF_HYPRLAND_GESTURES_ONLY:-1}"
+  export WSF_DEFER_PRUNE_UNTIL_TARGET="${WSF_DEFER_PRUNE_UNTIL_TARGET:-1}"
+  case ":${LD_PRELOAD:-}:" in
+    *":$wsf_lib:"*) ;;
+    *) export LD_PRELOAD="$wsf_lib${LD_PRELOAD:+:$LD_PRELOAD}" ;;
+  esac
+fi
+exec Hyprland
+```
+
+This does not use `/etc/ld.so.preload`; it only affects the launched Hyprland
+process. WSF removes itself from `LD_PRELOAD` after loading, so child
+applications should not inherit the preload setting.
+
+After restarting Hyprland, check:
+
+```bash
+wsf doctor
+```
+
+Look for:
+
+```text
+hyprland gesture preload: active
+runtime gesture reload: active via Hyprland gestures-only preload
+```
 
 ## Persistence
 

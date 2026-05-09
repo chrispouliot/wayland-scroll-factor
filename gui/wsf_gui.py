@@ -39,6 +39,7 @@ class WsfWindow(Adw.ApplicationWindow):
         self._loading = True
         self._last_doctor_output = ""
         self._hyprland_running = False
+        self._hyprland_gesture_preload = False
 
         self._toast_overlay = Adw.ToastOverlay()
         self.set_content(self._toast_overlay)
@@ -295,7 +296,10 @@ class WsfWindow(Adw.ApplicationWindow):
                 self._loading = False
                 self._show_apply_toast("Applied live via Hyprland native scroll factor.")
             elif self._hyprland_running:
-                self._show_apply_toast("Saved. Hyprland has no native backend for this gesture yet.")
+                if self._hyprland_gesture_preload:
+                    self._show_apply_toast("Saved. Hyprland gesture preload should pick it up live.")
+                else:
+                    self._show_apply_toast("Saved. Restart Hyprland with WSF gesture preload to apply pinch controls.")
             else:
                 self._show_apply_toast("Applied. Active preload sessions should pick up factor changes automatically.")
             return
@@ -380,8 +384,10 @@ class WsfWindow(Adw.ApplicationWindow):
 
         factors = data.get("factors", data)
         hyprland = data.get("hyprland", {})
+        hyprland_preload = data.get("hyprland_preload", {})
         hyprland_scroll = hyprland.get("touchpad_scroll_factor")
         self._hyprland_running = bool(hyprland.get("running", False))
+        self._hyprland_gesture_preload = bool(hyprland_preload.get("library_mapped", False))
         if self._hyprland_running and hyprland_scroll is not None:
             scroll_vertical = hyprland_scroll
             scroll_horizontal = hyprland_scroll
@@ -407,12 +413,17 @@ class WsfWindow(Adw.ApplicationWindow):
             self._show_status_error_toast("Invalid status response from wsf.")
             return
         hyprland = data.get("hyprland", {})
+        hyprland_preload = data.get("hyprland_preload", {})
         self._hyprland_running = bool(hyprland.get("running", False))
+        self._hyprland_gesture_preload = bool(hyprland_preload.get("library_mapped", False))
         self._loading = True
         self._enable_switch.set_active(bool(data.get("enabled", False)))
         if self._hyprland_running:
             self._enable_switch.set_sensitive(False)
-            self._enabled_row.set_subtitle("Not needed for Hyprland scroll; changes apply live")
+            if self._hyprland_gesture_preload:
+                self._enabled_row.set_subtitle("Hyprland scroll applies live; gesture preload is active")
+            else:
+                self._enabled_row.set_subtitle("Hyprland scroll applies live; pinch needs compositor restart")
         else:
             self._enable_switch.set_sensitive(True)
             self._enabled_row.set_subtitle("Enable/disable requires logout/login")

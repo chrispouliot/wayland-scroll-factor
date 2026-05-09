@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <time.h>
 
@@ -86,6 +87,8 @@ static void wsf_init_internal(void);
 
 static bool wsf_debug = false;
 static bool wsf_active = false;
+static bool wsf_scroll_active = false;
+static bool wsf_gesture_active = false;
 static double wsf_scroll_vertical_factor = WSF_FACTOR_DEFAULT;
 static double wsf_scroll_horizontal_factor = WSF_FACTOR_DEFAULT;
 static double wsf_pinch_zoom_factor = WSF_FACTOR_DEFAULT;
@@ -115,6 +118,88 @@ static void wsf_debug_log(const char *fmt, ...) {
 	vfprintf(stderr, fmt, args);
 	fprintf(stderr, "\n");
 	va_end(args);
+}
+
+static bool wsf_env_truthy(const char *name) {
+	const char *value = getenv(name);
+
+	if (value == NULL || value[0] == '\0') {
+		return false;
+	}
+
+	return strcmp(value, "1") == 0 ||
+		strcasecmp(value, "true") == 0 ||
+		strcasecmp(value, "yes") == 0 ||
+		strcasecmp(value, "on") == 0;
+}
+
+static bool wsf_target_list_contains(const char *targets, const char *name) {
+	const char *cursor = targets;
+	size_t name_len = 0;
+
+	if (targets == NULL || targets[0] == '\0' ||
+		name == NULL || name[0] == '\0') {
+		return false;
+	}
+
+	name_len = strlen(name);
+	while (*cursor != '\0') {
+		const char *start = NULL;
+		const char *end = NULL;
+
+		while (*cursor == ',' || *cursor == ':' ||
+			isspace((unsigned char) *cursor)) {
+			cursor++;
+		}
+		if (*cursor == '\0') {
+			break;
+		}
+
+		start = cursor;
+		while (*cursor != '\0' && *cursor != ',' && *cursor != ':' &&
+			!isspace((unsigned char) *cursor)) {
+			cursor++;
+		}
+		end = cursor;
+
+		while (end > start && isspace((unsigned char) *(end - 1))) {
+			end--;
+		}
+
+		if ((size_t) (end - start) == name_len &&
+			strncmp(start, name, name_len) == 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static void wsf_configure_activity(const char *proc_name) {
+	const char *targets = getenv("WSF_TARGETS");
+	bool has_targets = targets != NULL && targets[0] != '\0';
+	bool is_gnome_shell = strcmp(proc_name, "gnome-shell") == 0;
+	bool is_hyprland = strcmp(proc_name, "Hyprland") == 0;
+	bool targeted = has_targets ?
+		wsf_target_list_contains(targets, proc_name) :
+		is_gnome_shell;
+	bool hyprland_gestures = is_hyprland &&
+		(targeted ||
+		wsf_env_truthy("WSF_HYPRLAND_GESTURES") ||
+		wsf_env_truthy("WSF_HYPRLAND_GESTURES_ONLY"));
+
+	wsf_scroll_active = false;
+	wsf_gesture_active = false;
+
+	if (is_gnome_shell && targeted) {
+		wsf_scroll_active = true;
+		wsf_gesture_active = true;
+	} else if (hyprland_gestures) {
+		wsf_gesture_active = true;
+		wsf_scroll_active = wsf_env_truthy("WSF_HYPRLAND_SCROLL_PRELOAD");
+	}
+
+	wsf_active = wsf_scroll_active || wsf_gesture_active;
 }
 
 static long long wsf_monotonic_ms(void) {
@@ -163,6 +248,11 @@ static void wsf_prune_ld_preload_env(void) {
 	bool changed = false;
 
 	if (preload == NULL || preload[0] == '\0') {
+		return;
+	}
+
+	if (!wsf_active && wsf_env_truthy("WSF_DEFER_PRUNE_UNTIL_TARGET")) {
+		wsf_debug_log("keeping LD_PRELOAD until a configured target process loads");
 		return;
 	}
 
@@ -354,8 +444,11 @@ static void wsf_init_internal(void) {
 	}
 
 	wsf_debug = wsf_debug_enabled();
+	if (!wsf_proc_name(proc_name, sizeof(proc_name))) {
+		snprintf(proc_name, sizeof(proc_name), "unknown");
+	}
+	wsf_configure_activity(proc_name);
 	wsf_apply_effective_factors(false);
-	wsf_active = wsf_proc_is_target("gnome-shell");
 	wsf_real_scroll_value =
 		(wsf_scroll_value_fn) wsf_load_symbol(
 			"libinput_event_pointer_get_scroll_value"
@@ -401,76 +494,42 @@ static void wsf_init_internal(void) {
 	wsf_config_mtime = config_mtime;
 	wsf_last_config_check_ms = wsf_monotonic_ms();
 
-	if (wsf_proc_name(proc_name, sizeof(proc_name))) {
-		wsf_debug_log(
-			"init: process=%s active=%s scroll_vertical=%.4f scroll=%s v120=%s",
-			proc_name,
-			wsf_active ? "yes" : "no",
-			wsf_scroll_vertical_factor,
-			wsf_real_scroll_value ? "yes" : "no",
-			wsf_real_scroll_value_v120 ? "yes" : "no"
-		);
-		wsf_debug_log(
-			"init: scroll_vertical=%.4f scroll_horizontal=%.4f",
-			wsf_scroll_vertical_factor,
-			wsf_scroll_horizontal_factor
-		);
-		wsf_debug_log(
-			"init: axis_value=%s axis_discrete=%s",
-			wsf_real_axis_value ? "yes" : "no",
-			wsf_real_axis_value_discrete ? "yes" : "no"
-		);
-		wsf_debug_log(
-			"init: event_type=%s base_event=%s",
-			wsf_real_event_type ? "yes" : "no",
-			wsf_real_base_event ? "yes" : "no"
-		);
-		wsf_debug_log(
-			"init: axis_source=%s",
-			wsf_real_axis_source ? "yes" : "no"
-		);
-		wsf_debug_log(
-			"init: gesture_scale=%s gesture_angle=%s pinch_zoom=%.4f pinch_rotate=%.4f",
-			wsf_real_gesture_scale ? "yes" : "no",
-			wsf_real_gesture_angle_delta ? "yes" : "no",
-			wsf_pinch_zoom_factor,
-			wsf_pinch_rotate_factor
-		);
-	} else {
-		wsf_debug_log(
-			"init: process=unknown active=%s scroll_vertical=%.4f scroll=%s v120=%s",
-			wsf_active ? "yes" : "no",
-			wsf_scroll_vertical_factor,
-			wsf_real_scroll_value ? "yes" : "no",
-			wsf_real_scroll_value_v120 ? "yes" : "no"
-		);
-		wsf_debug_log(
-			"init: scroll_vertical=%.4f scroll_horizontal=%.4f",
-			wsf_scroll_vertical_factor,
-			wsf_scroll_horizontal_factor
-		);
-		wsf_debug_log(
-			"init: axis_value=%s axis_discrete=%s",
-			wsf_real_axis_value ? "yes" : "no",
-			wsf_real_axis_value_discrete ? "yes" : "no"
-		);
-		wsf_debug_log(
-			"init: event_type=%s base_event=%s",
-			wsf_real_event_type ? "yes" : "no",
-			wsf_real_base_event ? "yes" : "no"
-		);
-		wsf_debug_log(
-			"init: axis_source=%s",
-			wsf_real_axis_source ? "yes" : "no"
-		);
-		wsf_debug_log(
-			"init: gesture_scale=%s gesture_angle=%s pinch_zoom=%.4f pinch_rotate=%.4f",
-			wsf_real_gesture_scale ? "yes" : "no",
-			wsf_real_gesture_angle_delta ? "yes" : "no",
-			wsf_pinch_zoom_factor,
-			wsf_pinch_rotate_factor
-		);
-	}
+	wsf_debug_log(
+		"init: process=%s active=%s scroll_active=%s gesture_active=%s scroll_vertical=%.4f scroll=%s v120=%s",
+		proc_name,
+		wsf_active ? "yes" : "no",
+		wsf_scroll_active ? "yes" : "no",
+		wsf_gesture_active ? "yes" : "no",
+		wsf_scroll_vertical_factor,
+		wsf_real_scroll_value ? "yes" : "no",
+		wsf_real_scroll_value_v120 ? "yes" : "no"
+	);
+	wsf_debug_log(
+		"init: scroll_vertical=%.4f scroll_horizontal=%.4f",
+		wsf_scroll_vertical_factor,
+		wsf_scroll_horizontal_factor
+	);
+	wsf_debug_log(
+		"init: axis_value=%s axis_discrete=%s",
+		wsf_real_axis_value ? "yes" : "no",
+		wsf_real_axis_value_discrete ? "yes" : "no"
+	);
+	wsf_debug_log(
+		"init: event_type=%s base_event=%s",
+		wsf_real_event_type ? "yes" : "no",
+		wsf_real_base_event ? "yes" : "no"
+	);
+	wsf_debug_log(
+		"init: axis_source=%s",
+		wsf_real_axis_source ? "yes" : "no"
+	);
+	wsf_debug_log(
+		"init: gesture_scale=%s gesture_angle=%s pinch_zoom=%.4f pinch_rotate=%.4f",
+		wsf_real_gesture_scale ? "yes" : "no",
+		wsf_real_gesture_angle_delta ? "yes" : "no",
+		wsf_pinch_zoom_factor,
+		wsf_pinch_rotate_factor
+	);
 }
 
 __attribute__((constructor)) static void wsf_init(void) {
@@ -499,7 +558,7 @@ static bool wsf_should_scale_scroll(
 	int type = 0;
 	struct libinput_event *base = NULL;
 
-	if (!wsf_active || factor == 1.0) {
+	if (!wsf_scroll_active || factor == 1.0) {
 		return false;
 	}
 
@@ -715,7 +774,7 @@ double libinput_event_gesture_get_scale(struct libinput_event_gesture *event) {
 	}
 
 	scale = wsf_real_gesture_scale(event);
-	if (!wsf_active || wsf_pinch_zoom_factor == 1.0) {
+	if (!wsf_gesture_active || wsf_pinch_zoom_factor == 1.0) {
 		return scale;
 	}
 
@@ -744,7 +803,7 @@ double libinput_event_gesture_get_angle_delta(struct libinput_event_gesture *eve
 	}
 
 	delta = wsf_real_gesture_angle_delta(event);
-	if (!wsf_active || wsf_pinch_rotate_factor == 1.0) {
+	if (!wsf_gesture_active || wsf_pinch_rotate_factor == 1.0) {
 		return delta;
 	}
 

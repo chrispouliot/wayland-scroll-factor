@@ -35,7 +35,12 @@
 - Run `wsf set 0.35` or `wsf apply`; both should update the live Hyprland scroll factor without logout.
 - If vertical and horizontal factors differ, remember Hyprland currently has one native touchpad scroll factor for both axes.
 - If the value changes but does not persist after restarting Hyprland, comment out any static `touchpad.scroll_factor` line and add the documented `wsf apply` autostart command to your Hyprland startup config.
-- Pinch zoom/rotate tuning is not available through the native Hyprland backend yet.
+- Pinch zoom/rotate tuning requires launching Hyprland through `wsf-hyprland`
+  with `start-hyprland --path`.
+- For pinch zoom/rotate, `wsf doctor` should report
+  `hyprland gesture preload: active`.
+- If it is inactive, confirm `wsf-hyprland` is installed and your login/session
+  command uses `start-hyprland --path "$(command -v wsf-hyprland)" -- ...`.
 
 ## Debug mode
 

@@ -29,6 +29,7 @@ This installs:
 - `~/.local/lib/wayland-scroll-factor/libwsf_preload.so`
 - `~/.local/bin/wsf`
 - `~/.local/bin/wsf-gui`
+- `~/.local/bin/wsf-hyprland`
 - `~/.local/share/applications/io.github.danielgrasso.WaylandScrollFactor.desktop`
 - icons under `~/.local/share/icons/hicolor/`
 
@@ -104,8 +105,23 @@ wsf doctor
 ```
 
 Hyprland currently exposes one touchpad scroll factor for both vertical and
-horizontal axes. Pinch zoom/rotate sensitivity is not exposed as a native
-general-purpose client setting.
+horizontal axes.
+
+For pinch zoom/rotate, launch Hyprland through WSF's shim while keeping
+`start-hyprland` in the launch chain:
+
+```
+start-hyprland --path "$(command -v wsf-hyprland)" -- --config ~/.config/hypr/hyprland.conf
+```
+
+The shim only preloads WSF into the compositor process for gesture hooks. Check
+activation with:
+
+```
+wsf doctor
+```
+
+Look for `hyprland gesture preload: active`.
 
 For Hyprland-based OS images, install WSF with the desktop package set and add:
 
@@ -138,7 +154,7 @@ Then remove user config if needed:
 rm -f ~/.config/environment.d/wayland-scroll-factor.conf
 rm -rf ~/.config/wayland-scroll-factor/
 rm -rf ~/.local/lib/wayland-scroll-factor/
-rm -f ~/.local/bin/wsf
+rm -f ~/.local/bin/wsf ~/.local/bin/wsf-gui ~/.local/bin/wsf-hyprland
 ```
 
 If installed via pacman, remove the package instead:

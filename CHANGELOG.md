@@ -8,8 +8,11 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning for t
 
 ### Added
 - Experimental Hyprland native scroll backend using `hyprctl keyword input:touchpad:scroll_factor`.
+- Experimental `wsf-hyprland` launcher shim for Hyprland pinch zoom/rotate
+  gesture tuning through `start-hyprland --path`.
 - New `wsf apply` command to reapply saved settings to supported live compositor backends.
-- `wsf status` and `wsf doctor` now report Hyprland backend availability and the live touchpad scroll factor.
+- `wsf status` and `wsf doctor` now report Hyprland backend availability, the
+  live touchpad scroll factor, and gesture preload state.
 - Hyprland backend documentation and troubleshooting notes.
 
 ### Changed

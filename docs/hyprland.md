@@ -35,34 +35,26 @@ The preload library is not loaded inside Hyprland by default.
   clamps higher values when applying through `hyprctl`.
 - Pinch zoom and pinch rotate sensitivity are not exposed as general native
   Hyprland settings for client applications.
-- WSF can test pinch zoom/rotate through a targeted gestures-only preload in
-  the `Hyprland` process.
+- WSF can tune pinch zoom/rotate through the installed `wsf-hyprland` shim,
+  launched via `start-hyprland --path`.
 - WSF's scroll preload hooks stay disabled on Hyprland by default to avoid
   double scaling, because scroll is already handled by Hyprland's native
   `scroll_factor`.
 
 ## Experimental Pinch Support
 
-To test pinch zoom/rotate, launch Hyprland with WSF loaded only in the
-compositor process and only for gesture hooks:
+To test pinch zoom/rotate, launch Hyprland with WSF's shim while keeping
+Hyprland's recommended launcher in the path:
 
 ```bash
-wsf_lib="${WSF_LIB_PATH:-$HOME/.local/lib/wayland-scroll-factor/libwsf_preload.so}"
-if [ -r "$wsf_lib" ]; then
-  export WSF_TARGETS="${WSF_TARGETS:-Hyprland}"
-  export WSF_HYPRLAND_GESTURES_ONLY="${WSF_HYPRLAND_GESTURES_ONLY:-1}"
-  export WSF_DEFER_PRUNE_UNTIL_TARGET="${WSF_DEFER_PRUNE_UNTIL_TARGET:-1}"
-  case ":${LD_PRELOAD:-}:" in
-    *":$wsf_lib:"*) ;;
-    *) export LD_PRELOAD="$wsf_lib${LD_PRELOAD:+:$LD_PRELOAD}" ;;
-  esac
-fi
-exec Hyprland
+start-hyprland --path "$(command -v wsf-hyprland)" -- --config ~/.config/hypr/hyprland.conf
 ```
 
-This does not use `/etc/ld.so.preload`; it only affects the launched Hyprland
-process. WSF removes itself from `LD_PRELOAD` after loading, so child
-applications should not inherit the preload setting.
+`wsf-hyprland` finds `libwsf_preload.so`, sets the Hyprland gesture-only
+environment, and then executes the real `Hyprland` binary. This does not use
+`/etc/ld.so.preload`; it only affects the launched compositor process. WSF
+removes itself from `LD_PRELOAD` after loading, so child applications should
+not inherit the preload setting.
 
 After restarting Hyprland, check:
 
@@ -76,6 +68,10 @@ Look for:
 hyprland gesture preload: active
 runtime gesture reload: active via Hyprland gestures-only preload
 ```
+
+For login managers, set the session command to the equivalent of the
+`start-hyprland --path ... -- ...` command above. WSF does not modify login
+manager configuration automatically.
 
 ## Persistence
 
@@ -127,5 +123,5 @@ Findings:
 - Hyprland does not provide a comparable general-purpose pinch zoom/rotate
   sensitivity setting for client gestures.
 - Aquamarine still reads libinput scroll and pinch values through libinput
-  getter functions, but WSF intentionally does not activate its preload hooks in
-  Hyprland by default.
+  getter functions, and the `wsf-hyprland` shim can preload WSF only for
+  Hyprland gesture hooks.

@@ -24,7 +24,8 @@ WSF adjusts touchpad sensitivity when the compositor does not expose enough user
 - Pinch rotate factor.
 - GNOME Wayland support through a guarded per-user preload library.
 - Hyprland scroll support through native `hyprctl`.
-- Experimental Hyprland pinch zoom/rotate support through targeted gestures-only preload.
+- Experimental Hyprland pinch zoom/rotate support through a `start-hyprland`
+  compatible launcher shim.
 
 WSF is per-user and reversible. It does **not** use `/etc/ld.so.preload`.
 
@@ -125,27 +126,17 @@ No logout/login is required for Hyprland scroll changes.
 Hyprland currently exposes one native touchpad scroll factor shared by vertical and horizontal scrolling. For that reason, WSF keeps the vertical and horizontal scroll controls synchronized on Hyprland.
 
 Hyprland does not currently expose native client pinch zoom/rotate sensitivity
-settings. WSF can test those controls with a targeted gestures-only preload
-loaded into the `Hyprland` process at compositor startup.
-
-Add this pattern to the script/wrapper that launches Hyprland, before
-`exec Hyprland ...`:
+settings. WSF can tune those controls by starting Hyprland through the installed
+`wsf-hyprland` shim.
 
 ```bash
-wsf_lib="${WSF_LIB_PATH:-$HOME/.local/lib/wayland-scroll-factor/libwsf_preload.so}"
-if [ -r "$wsf_lib" ]; then
-  export WSF_TARGETS="${WSF_TARGETS:-Hyprland}"
-  export WSF_HYPRLAND_GESTURES_ONLY="${WSF_HYPRLAND_GESTURES_ONLY:-1}"
-  export WSF_DEFER_PRUNE_UNTIL_TARGET="${WSF_DEFER_PRUNE_UNTIL_TARGET:-1}"
-  case ":${LD_PRELOAD:-}:" in
-    *":$wsf_lib:"*) ;;
-    *) export LD_PRELOAD="$wsf_lib${LD_PRELOAD:+:$LD_PRELOAD}" ;;
-  esac
-fi
+start-hyprland --path "$(command -v wsf-hyprland)" -- --config ~/.config/hypr/hyprland.conf
 ```
 
-Then restart Hyprland. Once this preload is mapped in `Hyprland`, pinch factor
-changes should be picked up live from the WSF config.
+This keeps Hyprland inside its recommended `start-hyprland` launch path while
+letting WSF preload only the compositor process for gesture hooks. Once
+`wsf doctor` reports `hyprland gesture preload: active`, pinch factor changes
+are picked up live from the WSF config.
 
 ### Hyprland Persistence
 
@@ -180,6 +171,7 @@ wsf status
 wsf status --json
 wsf doctor
 wsf doctor --json
+wsf-hyprland
 ```
 
 Config file:
@@ -206,7 +198,7 @@ pinch_rotate_factor=1.00
 wsf disable
 rm -rf ~/.config/wayland-scroll-factor
 rm -f ~/.config/environment.d/wayland-scroll-factor.conf
-rm -f ~/.local/bin/wsf ~/.local/bin/wsf-gui
+rm -f ~/.local/bin/wsf ~/.local/bin/wsf-gui ~/.local/bin/wsf-hyprland
 rm -rf ~/.local/lib/wayland-scroll-factor
 rm -f ~/.local/share/applications/io.github.danielgrasso.WaylandScrollFactor.desktop
 rm -f ~/.local/share/metainfo/io.github.danielgrasso.WaylandScrollFactor.metainfo.xml

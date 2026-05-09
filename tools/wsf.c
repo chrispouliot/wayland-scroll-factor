@@ -1565,6 +1565,8 @@ static int wsf_cmd_doctor(bool json) {
 	char lib_path[512];
 	char gnome[256];
 	char libinput[256];
+	char wsf_hyprland[512];
+	char start_hyprland[512];
 	const char *session = getenv("XDG_SESSION_TYPE");
 	const char *desktop = getenv("XDG_CURRENT_DESKTOP");
 	const char *config_path = wsf_config_path();
@@ -1583,6 +1585,8 @@ static int wsf_cmd_doctor(bool json) {
 	struct wsf_symbol_status symbols;
 	struct wsf_runtime_state runtime;
 	struct wsf_hyprland_state hyprland;
+	bool wsf_hyprland_found = false;
+	bool start_hyprland_found = false;
 
 	if (!wsf_env_file_path(env_path, sizeof(env_path))) {
 		fprintf(stderr, "Failed to resolve environment.d path.\n");
@@ -1603,6 +1607,16 @@ static int wsf_cmd_doctor(bool json) {
 	wsf_symbol_status(&symbols);
 	wsf_runtime_state_collect(&runtime, lib_path);
 	wsf_hyprland_state_collect(&hyprland);
+	wsf_hyprland_found = wsf_run_command(
+		"command -v wsf-hyprland 2>/dev/null",
+		wsf_hyprland,
+		sizeof(wsf_hyprland)
+	);
+	start_hyprland_found = wsf_run_command(
+		"command -v start-hyprland 2>/dev/null",
+		start_hyprland,
+		sizeof(start_hyprland)
+	);
 
 	if (json) {
 		printf("{");
@@ -1657,6 +1671,17 @@ static int wsf_cmd_doctor(bool json) {
 		printf(",");
 		wsf_print_hyprland_preload_json_field(&runtime);
 		printf(",");
+		printf("\"hyprland_launch\":{");
+		printf("\"wsf_hyprland\":");
+		wsf_print_json_string(wsf_hyprland_found ? wsf_hyprland : NULL);
+		printf(",");
+		printf("\"start_hyprland\":");
+		wsf_print_json_string(start_hyprland_found ? start_hyprland : NULL);
+		printf(",");
+		printf("\"recommended_start_hyprland_path\":%s",
+			(wsf_hyprland_found && start_hyprland_found) ? "true" : "false"
+		);
+		printf("},");
 		printf("\"config\":");
 		wsf_print_json_string(config_path);
 		printf(",");
@@ -1750,6 +1775,19 @@ static int wsf_cmd_doctor(bool json) {
 	}
 	wsf_print_hyprland_status(&hyprland, true);
 	wsf_print_hyprland_preload_status(&runtime, true);
+	if (wsf_hyprland_found) {
+		printf("hyprland WSF launcher: %s\n", wsf_hyprland);
+	} else {
+		printf("hyprland WSF launcher: not found (install wsf-hyprland)\n");
+	}
+	if (start_hyprland_found) {
+		printf("start-hyprland: %s\n", start_hyprland);
+		printf("hyprland launch recommendation: start-hyprland --path %s -- ...\n",
+			wsf_hyprland_found ? wsf_hyprland : "wsf-hyprland"
+		);
+	} else {
+		printf("start-hyprland: not found\n");
+	}
 	if (config_path != NULL) {
 		printf(
 			"config: %s (%s)\n",

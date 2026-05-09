@@ -9,3 +9,15 @@ executable(
   install: true,
   install_dir: join_paths(get_option('prefix'), get_option('bindir'))
 )
+
+hyprland_shim_conf = configuration_data()
+hyprland_shim_conf.set('WSF_LIBDIR', wsf_libdir)
+
+configure_file(
+  input: 'wsf-hyprland.in',
+  output: 'wsf-hyprland',
+  configuration: hyprland_shim_conf,
+  install: true,
+  install_dir: join_paths(get_option('prefix'), get_option('bindir')),
+  install_mode: 'rwxr-xr-x'
+)

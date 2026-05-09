@@ -84,8 +84,10 @@ static wsf_base_event_fn wsf_real_base_event = NULL;
 static wsf_event_type_fn wsf_real_event_type = NULL;
 
 static void wsf_init_internal(void);
+static void *wsf_load_symbol(const char *name);
 
 static bool wsf_debug = false;
+static bool wsf_trace = false;
 static bool wsf_active = false;
 static bool wsf_is_gnome_shell = false;
 static bool wsf_scroll_active = false;
@@ -106,6 +108,11 @@ static bool wsf_logged_missing_axis_value_discrete = false;
 static bool wsf_logged_missing_axis_source = false;
 static bool wsf_logged_missing_gesture_scale = false;
 static bool wsf_logged_missing_gesture_angle = false;
+static unsigned int wsf_trace_scroll_logs = 0;
+static unsigned int wsf_trace_v120_logs = 0;
+static unsigned int wsf_trace_axis_logs = 0;
+
+#define WSF_TRACE_MAX_LOGS 40
 
 static void wsf_debug_log(const char *fmt, ...) {
 	if (!wsf_debug) {
@@ -132,6 +139,95 @@ static bool wsf_env_truthy(const char *name) {
 		strcasecmp(value, "true") == 0 ||
 		strcasecmp(value, "yes") == 0 ||
 		strcasecmp(value, "on") == 0;
+}
+
+static wsf_event_type_t wsf_event_type_for_pointer_event(
+	struct libinput_event_pointer *event
+) {
+	struct libinput_event *base = NULL;
+
+	if (event == NULL) {
+		return 0;
+	}
+
+	if (wsf_real_base_event == NULL) {
+		wsf_real_base_event =
+			(wsf_base_event_fn) wsf_load_symbol(
+				"libinput_event_pointer_get_base_event"
+			);
+	}
+	if (wsf_real_event_type == NULL) {
+		wsf_real_event_type =
+			(wsf_event_type_fn) wsf_load_symbol(
+				"libinput_event_get_type"
+			);
+	}
+
+	if (wsf_real_base_event == NULL || wsf_real_event_type == NULL) {
+		return 0;
+	}
+
+	base = wsf_real_base_event(event);
+	if (base == NULL) {
+		return 0;
+	}
+
+	return wsf_real_event_type(base);
+}
+
+static wsf_axis_source_t wsf_axis_source_for_pointer_event(
+	struct libinput_event_pointer *event
+) {
+	if (event == NULL) {
+		return 0;
+	}
+
+	if (wsf_real_axis_source == NULL) {
+		wsf_real_axis_source =
+			(wsf_axis_source_fn) wsf_load_symbol(
+				"libinput_event_pointer_get_axis_source"
+			);
+	}
+
+	if (wsf_real_axis_source == NULL) {
+		return 0;
+	}
+
+	return wsf_real_axis_source(event);
+}
+
+static void wsf_trace_scroll_event(
+	const char *hook,
+	struct libinput_event_pointer *event,
+	wsf_axis_t axis,
+	double value,
+	double factor,
+	bool scaled,
+	double result,
+	unsigned int *counter
+) {
+	wsf_event_type_t type = 0;
+	wsf_axis_source_t source = 0;
+
+	if (!wsf_trace || counter == NULL || *counter >= WSF_TRACE_MAX_LOGS) {
+		return;
+	}
+
+	type = wsf_event_type_for_pointer_event(event);
+	source = wsf_axis_source_for_pointer_event(event);
+	(*counter)++;
+
+	wsf_debug_log(
+		"trace %s: axis=%d value=%.4f factor=%.4f scaled=%s result=%.4f event_type=%d axis_source=%d",
+		hook,
+		(int) axis,
+		value,
+		factor,
+		scaled ? "yes" : "no",
+		result,
+		(int) type,
+		(int) source
+	);
 }
 
 static bool wsf_target_list_contains(const char *targets, const char *name) {
@@ -443,6 +539,10 @@ static void wsf_init_internal(void) {
 	}
 
 	wsf_debug = wsf_debug_enabled();
+	wsf_trace = wsf_env_truthy("WSF_TRACE");
+	if (wsf_trace) {
+		wsf_debug = true;
+	}
 	if (!wsf_proc_name(proc_name, sizeof(proc_name))) {
 		snprintf(proc_name, sizeof(proc_name), "unknown");
 	}
@@ -502,6 +602,10 @@ static void wsf_init_internal(void) {
 		wsf_scroll_vertical_factor,
 		wsf_real_scroll_value ? "yes" : "no",
 		wsf_real_scroll_value_v120 ? "yes" : "no"
+	);
+	wsf_debug_log(
+		"init: trace=%s",
+		wsf_trace ? "yes" : "no"
 	);
 	wsf_debug_log(
 		"init: scroll_vertical=%.4f scroll_horizontal=%.4f",
@@ -663,9 +767,29 @@ double libinput_event_pointer_get_axis_value(
 	value = wsf_real_axis_value(event, axis);
 	factor = wsf_scroll_factor_for_axis(axis);
 	if (!wsf_should_scale_scroll(event, factor)) {
+		wsf_trace_scroll_event(
+			"axis_value",
+			event,
+			axis,
+			value,
+			factor,
+			false,
+			value,
+			&wsf_trace_axis_logs
+		);
 		return value;
 	}
 
+	wsf_trace_scroll_event(
+		"axis_value",
+		event,
+		axis,
+		value,
+		factor,
+		true,
+		value * factor,
+		&wsf_trace_axis_logs
+	);
 	return value * factor;
 }
 
@@ -731,9 +855,29 @@ double libinput_event_pointer_get_scroll_value(
 	value = wsf_real_scroll_value(event, axis);
 	factor = wsf_scroll_factor_for_axis(axis);
 	if (!wsf_should_scale_scroll_value(event, factor)) {
+		wsf_trace_scroll_event(
+			"scroll_value",
+			event,
+			axis,
+			value,
+			factor,
+			false,
+			value,
+			&wsf_trace_scroll_logs
+		);
 		return value;
 	}
 
+	wsf_trace_scroll_event(
+		"scroll_value",
+		event,
+		axis,
+		value,
+		factor,
+		true,
+		value * factor,
+		&wsf_trace_scroll_logs
+	);
 	return value * factor;
 }
 
@@ -765,9 +909,29 @@ double libinput_event_pointer_get_scroll_value_v120(
 	value = wsf_real_scroll_value_v120(event, axis);
 	factor = wsf_scroll_factor_for_axis(axis);
 	if (!wsf_should_scale_scroll(event, factor)) {
+		wsf_trace_scroll_event(
+			"scroll_value_v120",
+			event,
+			axis,
+			value,
+			factor,
+			false,
+			value,
+			&wsf_trace_v120_logs
+		);
 		return value;
 	}
 
+	wsf_trace_scroll_event(
+		"scroll_value_v120",
+		event,
+		axis,
+		value,
+		factor,
+		true,
+		value * factor,
+		&wsf_trace_v120_logs
+	);
 	return value * factor;
 }
 

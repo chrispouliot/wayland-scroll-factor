@@ -1555,7 +1555,7 @@ static void wsf_doctor_symbols_print(const struct wsf_symbol_status *status) {
 		status->gesture_scale ? "yes" : "no",
 		status->gesture_angle ? "yes" : "no"
 	);
-	printf("scroll axis source filter: enabled (finger/continuous)\n");
+	printf("scroll filtering: GNOME continuous scroll fast path; v120/legacy axis source filter enabled\n");
 	if (!status->axis_source) {
 		printf("hint: axis source symbol missing; touchpad-only filter is inactive.\n");
 	}

@@ -59,7 +59,10 @@ The preload library then:
 1. Detects the process name.
 2. Activates only if the process is `gnome-shell`.
 3. Resolves libinput symbols with `dlsym(RTLD_NEXT, ...)`.
-4. Scales touchpad finger/continuous scroll, not mouse wheel scroll.
+4. Scales GNOME/Mutter continuous scroll through
+   `libinput_event_pointer_get_scroll_value()`. Mutter 50 uses that path for
+   finger/continuous scroll and keeps wheel scroll on the v120 path, so mouse
+   wheel behavior remains unscaled.
 5. Scales pinch zoom/rotate values.
 6. Removes WSF from `LD_PRELOAD` in the process environment after loading, so
    child applications do not inherit the preload.

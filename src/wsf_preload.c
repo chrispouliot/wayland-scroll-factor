@@ -87,6 +87,7 @@ static void wsf_init_internal(void);
 
 static bool wsf_debug = false;
 static bool wsf_active = false;
+static bool wsf_is_gnome_shell = false;
 static bool wsf_scroll_active = false;
 static bool wsf_gesture_active = false;
 static double wsf_scroll_vertical_factor = WSF_FACTOR_DEFAULT;
@@ -190,6 +191,7 @@ static void wsf_configure_activity(const char *proc_name) {
 
 	wsf_scroll_active = false;
 	wsf_gesture_active = false;
+	wsf_is_gnome_shell = is_gnome_shell;
 
 	if (is_gnome_shell && targeted) {
 		wsf_scroll_active = true;
@@ -616,6 +618,26 @@ static bool wsf_should_scale_scroll(
 	return false;
 }
 
+static bool wsf_should_scale_scroll_value(
+	struct libinput_event_pointer *event,
+	double factor
+) {
+	if (!wsf_scroll_active || factor == 1.0) {
+		return false;
+	}
+
+	/* Mutter 50 uses get_scroll_value() for finger/continuous scroll and
+	 * get_scroll_value_v120() for wheel scroll. Keeping this GNOME-specific
+	 * fast path avoids depending on libinput's legacy axis source query for
+	 * touchpad scroll while preserving wheel behavior through the v120 path.
+	 */
+	if (wsf_is_gnome_shell) {
+		return true;
+	}
+
+	return wsf_should_scale_scroll(event, factor);
+}
+
 double libinput_event_pointer_get_axis_value(
 	struct libinput_event_pointer *event,
 	wsf_axis_t axis
@@ -711,7 +733,7 @@ double libinput_event_pointer_get_scroll_value(
 
 	value = wsf_real_scroll_value(event, axis);
 	factor = wsf_scroll_factor_for_axis(axis);
-	if (!wsf_should_scale_scroll(event, factor)) {
+	if (!wsf_should_scale_scroll_value(event, factor)) {
 		return value;
 	}
 

@@ -33,10 +33,10 @@ WSF is per-user and reversible. It does **not** use `/etc/ld.so.preload`.
 
 ## Install
 
-Testing branch install:
+One-shot user install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/daniel-g-carrasco/wayland-scroll-factor/feature/hyprland-backend/scripts/bootstrap.sh | WSF_REF=feature/hyprland-backend bash
+curl -fsSL https://raw.githubusercontent.com/daniel-g-carrasco/wayland-scroll-factor/main/scripts/bootstrap.sh | bash
 ```
 
 Manual build:
@@ -44,7 +44,6 @@ Manual build:
 ```bash
 git clone https://github.com/daniel-g-carrasco/wayland-scroll-factor.git
 cd wayland-scroll-factor
-git checkout feature/hyprland-backend
 meson setup build --prefix="$HOME/.local"
 ninja -C build
 meson install -C build

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/daniel-g-carrasco/wayland-scroll-factor.git"
-WSF_REF="${WSF_REF:-feature/hyprland-backend}"
+WSF_REF="${WSF_REF:-main}"
 DEST="${DEST:-$HOME/wayland-scroll-factor}"
 
 install_dnf_libinput_pkg() {

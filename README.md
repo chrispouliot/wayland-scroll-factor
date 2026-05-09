@@ -10,7 +10,7 @@
 <p align="center">
   <b>Tune touchpad scroll and gesture feel on Wayland</b><br>
   GNOME Wayland preload backend, plus experimental Hyprland scroll and gesture support.<br>
-  <i>Status: testing. Current beta: v0.3.0-beta.1</i>
+  <i>Status: stable v0.3.0. Hyprland support is new and still being expanded.</i>
 </p>
 
 ---

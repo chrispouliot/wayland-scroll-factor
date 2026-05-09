@@ -6,13 +6,13 @@ The format is inspired by Keep a Changelog and follows Semantic Versioning for t
 
 ## [Unreleased]
 
-## [0.3.0-beta.1] - 2026-05-09
+## [0.3.0] - 2026-05-09
 
 ### Added
-- Experimental Hyprland native scroll backend using `hyprctl keyword input:touchpad:scroll_factor`.
-- Experimental `wsf-hyprland` launcher shim for Hyprland pinch zoom/rotate
+- Hyprland native scroll backend using `hyprctl keyword input:touchpad:scroll_factor`.
+- `wsf-hyprland` launcher shim for Hyprland pinch zoom/rotate
   gesture tuning through `start-hyprland --path`.
-- Experimental `wsf-session-wrapper` for greeters such as tuigreet, including
+- `wsf-session-wrapper` for greeters such as tuigreet, including
   setups where remembered sessions bypass a static `--cmd`.
 - New `docs/how-it-works.md` guide describing GNOME preload, Hyprland native
   scroll, Hyprland gesture preload, safety boundaries, and verification.

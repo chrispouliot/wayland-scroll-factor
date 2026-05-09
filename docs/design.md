@@ -52,9 +52,10 @@
 - Preload safety: WSF does not activate preload hooks inside Hyprland by
   default, avoiding double scaling between native Hyprland scroll handling and
   libinput interposition.
-- Persistence: `wsf set` applies live on a running Hyprland session; users can
-  add `exec-once = wsf apply` to Hyprland startup config to reapply saved WSF
-  config on session start.
+- Persistence: `wsf set` applies live on a running Hyprland session. Hyprland
+  integrations should keep static `touchpad.scroll_factor` commented out and
+  run `wsf apply` from session startup, preferably through a shell fallback that
+  tries `wsf` from `PATH` and then `$HOME/.local/bin/wsf`.
 
 ## MVP design (GNOME Wayland)
 

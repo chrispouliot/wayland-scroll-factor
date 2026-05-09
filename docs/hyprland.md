@@ -40,11 +40,32 @@ of enabling the preload library inside Hyprland by default.
 
 ## Persistence
 
-`hyprctl keyword ...` changes the running Hyprland session. To apply WSF at
-session start, add this to your Hyprland startup config:
+`hyprctl keyword ...` changes the running Hyprland session. To make WSF the
+source of truth, keep any static Hyprland `touchpad.scroll_factor` line
+commented out and apply WSF at session start.
+
+Recommended input config pattern:
 
 ```ini
-exec-once = wsf apply
+touchpad {
+    natural_scroll = true
+
+    # Touchpad scroll speed is managed by Wayland Scroll Factor (WSF).
+    # Hyprland exposes one native `scroll_factor` shared by vertical and
+    # horizontal axes. Keep this commented so reload/login does not overwrite
+    # the value chosen in WSF/WSF GUI.
+    #
+    # scroll_factor = 0.3
+
+    tap-to-click = true
+    clickfinger_behavior = true
+}
+```
+
+Recommended startup config pattern:
+
+```ini
+exec-once = sh -lc 'if command -v wsf >/dev/null 2>&1; then wsf apply; elif [ -x "$HOME/.local/bin/wsf" ]; then "$HOME/.local/bin/wsf" apply; fi'
 ```
 
 For Margine OS integration, prefer launching `wsf apply` as part of the

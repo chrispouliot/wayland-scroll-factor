@@ -58,7 +58,7 @@ Notes:
 - `wsf enable` tries `systemctl --user daemon-reexec` automatically so the user manager reloads `~/.config/environment.d`.
 - Once WSF is active in `gnome-shell`, later `wsf set ...` changes should apply live without another logout.
 - On Hyprland, scroll factor changes apply live through `hyprctl` when a running Hyprland session is detected. Use `wsf apply` to reapply the saved config.
-- To persist Hyprland live settings across compositor restarts, add `exec-once = wsf apply` to your Hyprland startup config.
+- To persist Hyprland live settings across compositor restarts, keep static `touchpad.scroll_factor` commented out and add the documented `wsf apply` autostart command to your Hyprland startup config.
 
 ## Config file
 
@@ -106,6 +106,15 @@ wsf doctor
 Hyprland currently exposes one touchpad scroll factor for both vertical and
 horizontal axes. Pinch zoom/rotate sensitivity is not exposed as a native
 general-purpose client setting.
+
+For Hyprland-based OS images, install WSF with the desktop package set and add:
+
+```
+exec-once = sh -lc 'if command -v wsf >/dev/null 2>&1; then wsf apply; elif [ -x "$HOME/.local/bin/wsf" ]; then "$HOME/.local/bin/wsf" apply; fi'
+```
+
+Keep any static Hyprland `scroll_factor = ...` line commented out so reloads do
+not overwrite the WSF value.
 
 ## Disable
 

@@ -34,7 +34,7 @@
 - Run `hyprctl getoption input:touchpad:scroll_factor` to inspect the live compositor value.
 - Run `wsf set 0.35` or `wsf apply`; both should update the live Hyprland scroll factor without logout.
 - If vertical and horizontal factors differ, remember Hyprland currently has one native touchpad scroll factor for both axes.
-- If the value changes but does not persist after restarting Hyprland, add `exec-once = wsf apply` to your Hyprland startup config.
+- If the value changes but does not persist after restarting Hyprland, comment out any static `touchpad.scroll_factor` line and add the documented `wsf apply` autostart command to your Hyprland startup config.
 - Pinch zoom/rotate tuning is not available through the native Hyprland backend yet.
 
 ## Debug mode

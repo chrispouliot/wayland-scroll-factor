@@ -1,4 +1,5 @@
 # Wayland Scroll Factor (WSF)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <p align="center">
@@ -8,103 +9,148 @@
 
 <p align="center">
   <b>Tune touchpad gesture feel on Wayland</b><br>
-  Predictable two‑finger scrolling (vertical + horizontal) and pinch zoom/rotate sensitivity on modern Linux desktops — GNOME first, with experimental Hyprland scroll support.<br>
-  <i>Status: testing</i>
+  User-level touchpad scroll and gesture sensitivity control for modern Wayland desktops.<br>
+  <i>Status: testing. GNOME support is the primary target; Hyprland scroll support is experimental.</i>
 </p>
 
 Release notes: [`CHANGELOG.md`](CHANGELOG.md)
 
 ---
 
-## What is WSF?
+## What WSF Does
 
-**WSF (Wayland Scroll Factor)** is a small utility that helps you adjust the *feel* of common touchpad gestures on Wayland:
+WSF (Wayland Scroll Factor) adjusts touchpad gesture sensitivity where desktop environments do not expose enough user-facing controls.
 
-- **Two‑finger scroll** (vertical and horizontal)
-- **Pinch‑to‑zoom** sensitivity
-- **Pinch rotate** sensitivity
+Supported controls:
 
-WSF is intentionally narrow in scope and designed to be **safe, reversible, and practical** on modern Wayland setups (tested primarily on Arch + GNOME, with experimental Hyprland scroll support).
+- Two-finger scroll factor.
+- Vertical and horizontal scroll config keys.
+- Pinch zoom factor.
+- Pinch rotate factor.
+- Native Hyprland touchpad scroll factor application.
 
----
-
-## Why does this exist?
-
-On Wayland, touchpad gesture behavior is typically handled by the compositor (e.g. GNOME Shell/Mutter). Many users run into one or more of these issues depending on hardware and distro defaults:
-
-- Scroll feels **too fast/too slow** and there is **no simple system slider**.
-- Horizontal scroll behavior is inconsistent across apps.
-- Pinch‑to‑zoom in maps/photos can feel **hard to control**.
-- Older hacks/workarounds can become **fragile** across GNOME/libinput updates.
-
-WSF exists to provide a **user‑level**, easy‑to‑roll‑back approach until upstream environments expose consistent, user‑facing controls.
+WSF is intentionally small, user-level, and reversible. It does not use `/etc/ld.so.preload`.
 
 ---
 
-## How it works (high level)
+## Why It Exists
 
-WSF ships two components:
+On Wayland, touchpad behavior is compositor-owned. Depending on compositor, distro, hardware, and libinput version, users may get fast scrolling, inconsistent horizontal scroll, hard-to-control pinch zoom, or no practical UI to tune these behaviors.
 
-1) **CLI (`wsf`)**  
-   Reads/writes config and controls enable/disable and diagnostics.
+WSF provides a pragmatic workaround while upstream desktops mature their own settings.
 
-2) **User‑level preload library (`libwsf_preload.so`)**  
-   Interposes a small set of libinput functions used for scrolling and gestures and applies configurable scaling factors.
+Design goals:
 
-3) **Native compositor backends where available**
-   Hyprland scroll tuning uses `hyprctl keyword input:touchpad:scroll_factor ...` instead of patching Hyprland.
-
-### Safety design choices
-
-- **Per‑user only**: avoids `/etc/ld.so.preload`. Config is under `~/.config`.
-- **Process guard rail**: the preload library is a no‑op unless the process is `gnome-shell` (so unrelated apps are not affected). Hyprland scroll support uses the native `hyprctl` backend instead.
-- **Touchpad‑only scroll scaling**: scroll scaling is applied only to finger/continuous sources, preserving mouse wheel behavior.
-- **Narrow scope**: focuses on scroll + pinch sensitivity to reduce breakage across updates.
-- **Diagnostics first**: `wsf doctor` reports symbol availability, active factors, and environment status.
-
-> Factor changes now reload live inside an already-active `gnome-shell`.  
-> Enabling/disabling still requires **logout/login** because the preload itself must be picked up by GNOME Shell.
+- Safe by default.
+- Per-user configuration.
+- Easy rollback.
+- No global preload.
+- Clear diagnostics.
+- Small, auditable code.
 
 ---
 
-## Quick install (one‑shot)
+## Backend Model
 
-This script attempts to:
-1) install dependencies via your package manager,
-2) clone the repo,
-3) run the user install.
+WSF uses different backends depending on compositor support.
 
-It detects your distro (Arch, Ubuntu/Debian, Fedora) and runs the appropriate package manager commands. If dependency install fails, you can rerun the script after installing packages manually.
+### GNOME Wayland
+
+GNOME uses the WSF preload backend.
+
+The preload library is installed per-user and injected through:
+
+```text
+~/.config/environment.d/wayland-scroll-factor.conf
+```
+
+The library is guarded so it only modifies behavior inside `gnome-shell`. Other processes load no active behavior.
+
+GNOME behavior:
+
+- `wsf enable` enables the preload for the next login.
+- `wsf disable` removes the preload environment file.
+- Login/logout is required when enabling or disabling.
+- Once WSF is already loaded in `gnome-shell`, factor changes reload live.
+- Scroll scaling is touchpad-oriented and avoids mouse wheel scaling.
+
+### Hyprland
+
+Hyprland uses the native backend.
+
+Hyprland already exposes:
+
+```text
+input:touchpad:scroll_factor
+```
+
+WSF applies that setting live with:
+
+```bash
+hyprctl keyword input:touchpad:scroll_factor <factor>
+```
+
+Hyprland behavior:
+
+- `wsf set <factor>` writes the WSF config and applies Hyprland scroll live.
+- `wsf apply` reapplies saved WSF config to the running Hyprland session.
+- No logout is required for live Hyprland scroll changes.
+- Hyprland currently exposes one touchpad scroll factor shared by vertical and horizontal scroll.
+- Pinch zoom and pinch rotate are not available as native Hyprland client sensitivity settings.
+- WSF does not activate its preload backend inside Hyprland by default, avoiding double scaling.
+
+See [`docs/hyprland.md`](docs/hyprland.md).
+
+---
+
+## Install
+
+### One-Shot Install
+
+This script installs dependencies, clones the repository, and runs the per-user install.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/daniel-g-carrasco/wayland-scroll-factor/main/scripts/bootstrap.sh | bash
 ```
 
-**Notes**
-- Requires `sudo` only for dependency installation.
-- GUI requires **libadwaita ≥ 1.4** (Ubuntu 22.04 and Debian 12 will install, but the GUI won’t run; the CLI still works).
-- As with any `curl | bash` install: feel free to inspect the script first.
+Notes:
+
+- Uses `sudo` only for dependency installation.
+- Installs WSF files under `~/.local`.
+- Installs the GUI launcher under `~/.local/share/applications`.
+- GUI requires GTK4 and libadwaita 1.4 or newer.
+- The CLI can still work where the GUI stack is too old.
+
+### Manual Build
+
+```bash
+git clone https://github.com/daniel-g-carrasco/wayland-scroll-factor.git
+cd wayland-scroll-factor
+meson setup build --prefix="$HOME/.local"
+ninja -C build
+meson install -C build
+```
+
+Or use:
+
+```bash
+./scripts/install.sh
+```
 
 ---
 
-## Quick start
+## Quick Start
 
-Set a factor (example: slightly slower scroll):
+Set a shared scroll factor:
 
 ```bash
 wsf set 0.35
 ```
 
-Enable for your session (**logout/login required**):
+Check status:
 
 ```bash
-wsf enable
-```
-
-On Hyprland, supported scroll changes apply live through the native backend:
-
-```bash
-wsf apply
+wsf status
 ```
 
 Run diagnostics:
@@ -113,49 +159,81 @@ Run diagnostics:
 wsf doctor
 ```
 
-Disable (rollback):
+### GNOME Quick Start
+
+```bash
+wsf set 0.35
+wsf enable
+```
+
+Then log out and log back in.
+
+Disable:
 
 ```bash
 wsf disable
 ```
 
----
+Then log out and log back in.
 
-## CLI usage
-
-### Build
+### Hyprland Quick Start
 
 ```bash
-meson setup build --prefix="$HOME/.local"
-ninja -C build
+wsf set 0.35
+wsf apply
+hyprctl getoption input:touchpad:scroll_factor
 ```
 
-### Install
-
-```bash
-meson install -C build
-# or
-./scripts/install.sh
-```
-
-### Common commands
-
-- `wsf get` (or `wsf get --json`)
-- `wsf set <factor>` (and/or per‑key factors; applies live on supported active backends)
-- `wsf apply` (apply supported live compositor backends, currently Hyprland scroll)
-- `wsf enable` / `wsf disable` (**logout/login required**)
-- `wsf status`
-- `wsf doctor`
+`wsf set` already applies live when Hyprland is running. `wsf apply` is useful at session startup or after a Hyprland reload.
 
 ---
 
-## GUI (GNOME / libadwaita)
+## CLI Commands
 
-WSF includes a GNOME‑style **GTK4/libadwaita** control app that uses the `wsf` CLI under the hood.
+```bash
+wsf get
+wsf get --json
+wsf set <factor>
+wsf set --scroll-vertical <factor>
+wsf set --scroll-horizontal <factor>
+wsf set --pinch-zoom <factor>
+wsf set --pinch-rotate <factor>
+wsf apply
+wsf enable
+wsf disable
+wsf status
+wsf status --json
+wsf doctor
+wsf doctor --json
+```
 
-- Run: `wsf-gui`
-- Reads values via `wsf get --json`
-- Applies changes via `wsf set`
+Recommended factor range:
+
+```text
+0.05 - 5.0
+```
+
+Hyprland native scroll is clamped to its supported native range when applied through `hyprctl`.
+
+---
+
+## GUI
+
+WSF includes a GTK4/libadwaita GUI:
+
+```bash
+wsf-gui
+```
+
+The GUI calls the `wsf` CLI. It does not duplicate backend logic.
+
+GUI behavior:
+
+- Reads values through `wsf status --json`.
+- Applies values through `wsf set`.
+- Shows diagnostics from `wsf doctor`.
+- On Hyprland, reads the live `input:touchpad:scroll_factor`.
+- On Hyprland, keeps vertical and horizontal scroll sliders synchronized because the compositor exposes one shared touchpad scroll factor.
 
 <p align="center">
   <img src="docs/screenshots/gui.png" alt="WSF GUI screenshot" width="860">
@@ -165,119 +243,238 @@ WSF includes a GNOME‑style **GTK4/libadwaita** control app that uses the `wsf`
 
 ## Configuration
 
-WSF stores configuration under:
+WSF config path:
 
-- `~/.config/wayland-scroll-factor/config`
+```text
+~/.config/wayland-scroll-factor/config
+```
 
-Typical keys (depending on your version):
+Example:
 
-- `factor=...` (legacy / shared)
-- `scroll_vertical_factor=...`
-- `scroll_horizontal_factor=...`
-- `pinch_zoom_factor=...`
-- `pinch_rotate_factor=...`
+```ini
+factor=0.35
+scroll_vertical_factor=0.35
+scroll_horizontal_factor=0.35
+pinch_zoom_factor=1.00
+pinch_rotate_factor=1.00
+```
 
-You can also override values temporarily using environment variables (see `wsf --help` / docs).
+Compatibility behavior:
+
+- `factor` is the legacy shared value.
+- If per-axis scroll keys are missing, `factor` is used for scroll.
+- If per-axis scroll keys exist, they override `factor`.
+- Hyprland has one native touchpad scroll factor, so WSF uses one value at runtime there.
+
+Environment overrides:
+
+```bash
+WSF_FACTOR=0.35
+WSF_SCROLL_VERTICAL_FACTOR=0.35
+WSF_SCROLL_HORIZONTAL_FACTOR=0.35
+WSF_PINCH_ZOOM_FACTOR=1.00
+WSF_PINCH_ROTATE_FACTOR=1.00
+WSF_LIB_PATH=/custom/path/libwsf_preload.so
+WSF_DEBUG=1
+```
 
 ---
 
-## Uninstall / rollback
+## Hyprland Persistence
 
-WSF is designed to be easy to remove.
+Hyprland runtime settings can be overwritten by static config on reload/login. If WSF should be the source of truth, do not keep an active static touchpad `scroll_factor` in Hyprland config.
 
-Disable:
+Recommended `50-input.conf` pattern:
+
+```ini
+input {
+    touchpad {
+        natural_scroll = true
+
+        # Touchpad scroll speed is managed by Wayland Scroll Factor (WSF).
+        #
+        # Hyprland exposes one native `scroll_factor` for touchpad scrolling,
+        # shared by vertical and horizontal axes. WSF writes that same setting
+        # live via:
+        #
+        #   wsf set 0.3
+        #   wsf apply
+        #
+        # Keep the static Hyprland value commented out so `hyprctl reload` or a
+        # new login does not overwrite the value chosen in WSF/WSF GUI.
+        #
+        # scroll_factor = 0.3
+
+        tap-to-click = true
+        clickfinger_behavior = true
+    }
+}
+```
+
+Recommended `20-autostart.conf` pattern:
+
+```ini
+# Reapply WSF's saved Hyprland touchpad scroll factor at session startup.
+# This keeps scroll speed controlled from WSF/WSF GUI instead of a static
+# `input:touchpad:scroll_factor` value in `50-input.conf`.
+exec-once = sh -lc 'if command -v wsf >/dev/null 2>&1; then wsf apply; elif [ -x "$HOME/.local/bin/wsf" ]; then "$HOME/.local/bin/wsf" apply; fi'
+```
+
+For OS images such as Margine OS, install WSF as part of the base desktop package set and keep `wsf apply` in Hyprland autostart.
+
+---
+
+## Files Installed
+
+Per-user install places files under:
+
+```text
+~/.local/bin/wsf
+~/.local/bin/wsf-gui
+~/.local/lib/wayland-scroll-factor/libwsf_preload.so
+~/.local/share/applications/io.github.danielgrasso.WaylandScrollFactor.desktop
+~/.local/share/icons/hicolor/
+~/.local/share/metainfo/
+```
+
+Runtime config may create:
+
+```text
+~/.config/wayland-scroll-factor/config
+~/.config/environment.d/wayland-scroll-factor.conf
+```
+
+The `environment.d` file is only needed for GNOME preload activation.
+
+---
+
+## Uninstall
+
+Disable GNOME preload:
 
 ```bash
 wsf disable
 ```
 
-Remove config:
+Remove user-installed files:
+
+```bash
+rm -f ~/.local/bin/wsf ~/.local/bin/wsf-gui
+rm -rf ~/.local/lib/wayland-scroll-factor
+rm -f ~/.local/share/applications/io.github.danielgrasso.WaylandScrollFactor.desktop
+rm -rf ~/.local/share/icons/hicolor/*/apps/io.github.danielgrasso.WaylandScrollFactor.png
+rm -f ~/.local/share/metainfo/io.github.danielgrasso.WaylandScrollFactor.metainfo.xml
+```
+
+Remove runtime config:
 
 ```bash
 rm -rf ~/.config/wayland-scroll-factor
-rm -f  ~/.config/environment.d/wayland-scroll-factor.conf
+rm -f ~/.config/environment.d/wayland-scroll-factor.conf
 ```
 
-Remove installed files (user install):
-
-```bash
-rm -f  ~/.local/bin/wsf ~/.local/bin/wsf-gui
-rm -rf ~/.local/lib/wayland-scroll-factor
-```
-
-After disabling/removal: **logout/login**.
-
----
-
-## Packages
-
-### Arch (AUR-style PKGBUILD)
-
-```bash
-cd packaging/aur
-makepkg -si
-```
-
-This installs system‑wide under `/usr`. For custom library locations, set `WSF_LIB_PATH` before running `wsf enable`.
+After disabling GNOME preload, log out and log back in.
 
 ---
 
 ## Compatibility
 
-- **Core (preload/CLI)** requires **libinput ≥ 1.19**
-- **GUI** requires **libadwaita ≥ 1.4** (`Adw.ToolbarView` introduced in 1.4)
-- **Hyprland backend** requires `hyprctl` and a running Hyprland session
+Known working:
 
-### Known working
+- Arch Linux rolling with GNOME Wayland.
+- Arch Linux rolling with Hyprland native scroll backend.
+- Ubuntu 24.04 LTS for CLI and GUI.
+- Recent Fedora for CLI and GUI.
 
-- **Arch Linux (rolling)** + GNOME (Wayland) — primary test target
-- **Arch Linux (rolling)** + Hyprland — experimental native scroll backend
-- **Ubuntu 24.04 LTS** — CLI + GUI compatible
-- **Fedora (recent)** — CLI + GUI compatible
+CLI-only or limited GUI environments:
 
-### Notes
+- Ubuntu 22.04 LTS, because libadwaita is too old for the current GUI.
+- Debian 12, because libadwaita is too old for the current GUI.
 
-- `wsf enable` / `wsf disable` now try `systemctl --user daemon-reexec` automatically to help `environment.d` changes get picked up on distros where plain logout/login is not enough.
-- WSF strips its own `LD_PRELOAD` entry from child processes after load, reducing inherited-preload issues with sandboxed apps such as snaps.
-- Hyprland exposes one native touchpad scroll factor, so WSF maps vertical and horizontal scroll controls to the same runtime setting there.
+Requirements:
 
-### CLI only (GUI too old)
-
-- Ubuntu 22.04 LTS
-- Debian 12
+- C compiler and Meson/Ninja for building from source.
+- libinput runtime.
+- Python 3 for the GUI launcher script.
+- GTK4 and libadwaita for the GUI.
+- `hyprctl` for Hyprland native scroll support.
 
 ---
 
 ## Limitations
 
-- Environment changes still require **logout/login** to affect GNOME Shell.
-- Hyprland scroll changes apply live, but persistence across Hyprland restarts requires running `wsf apply` at session startup.
-- On a few distros/session setups, one reboot may still be needed after first enable if the user manager does not pick up `environment.d` changes across a normal relogin.
-- WSF intentionally adjusts only a small subset of gesture feel controls.
-- Pinch zoom/rotate scaling remains GNOME/preload-focused; Hyprland does not currently expose a native general-purpose pinch sensitivity setting for clients.
+- GNOME enable/disable still requires login/logout because the preload must be loaded by `gnome-shell`.
+- Hyprland scroll applies live, but persistence requires `wsf apply` at session startup.
+- Hyprland exposes one native touchpad scroll factor, not separate vertical/horizontal factors.
+- Hyprland does not currently expose a general native pinch zoom/rotate sensitivity setting for client applications.
+- WSF is a workaround, not a replacement for eventual upstream compositor settings.
 
-See [`docs/hyprland.md`](docs/hyprland.md) for the Hyprland audit and setup notes.
+---
+
+## Troubleshooting
+
+Useful commands:
+
+```bash
+wsf status
+wsf doctor
+wsf status --json
+wsf doctor --json
+```
+
+Hyprland checks:
+
+```bash
+hyprctl getoption input:touchpad:scroll_factor
+wsf apply
+```
+
+GNOME debug logging:
+
+```bash
+printf 'WSF_DEBUG=1\n' >> ~/.config/environment.d/wayland-scroll-factor.conf
+# log out / log back in
+journalctl --user -b -g "wsf:"
+```
+
+More details:
+
+- [`docs/install.md`](docs/install.md)
+- [`docs/troubleshooting.md`](docs/troubleshooting.md)
+- [`docs/hyprland.md`](docs/hyprland.md)
+- [`docs/design.md`](docs/design.md)
 
 ---
 
 ## Contributing
 
-Issues and PRs are welcome. When reporting a problem, please include:
+Issues and pull requests are welcome.
 
-- distro + compositor + session type (Wayland/X11)
-- GNOME Shell version (if applicable)
-- libinput version
-- what you expected vs what happened
-- output of `wsf doctor`
+Please include:
 
----
-
-## License
-
-MIT License — see [`LICENSE`](LICENSE).
+- Distro.
+- Compositor.
+- Session type.
+- libinput version.
+- WSF version or commit.
+- Output of `wsf doctor`.
+- What you expected.
+- What happened instead.
 
 ---
 
 ## Acknowledgements
 
-WSF was inspired by the idea behind [`libinput-config`](https://github.com/lz42/libinput-config).
+WSF was inspired by the idea behind [`libinput-config`](https://github.com/lz42/libinput-config), but uses a narrower and safer architecture:
+
+- No `/etc/ld.so.preload`.
+- Per-user install and rollback.
+- GNOME process guard.
+- Hyprland native backend where available.
+- Built-in diagnostics.
+
+---
+
+## License
+
+MIT License. See [`LICENSE`](LICENSE).

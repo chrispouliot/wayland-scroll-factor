@@ -72,6 +72,11 @@ events. Factor changes should not require another logout, but they are not a
 separate compositor command: test with a new gesture after changing a value.
 Logout is only required to load or unload the preload itself.
 
+The CLI writes the config through a temporary file and atomic rename, so the
+preload never observes a half-written config. The preload also refreshes the
+effective factors periodically while handling gestures instead of relying only
+on file timestamp changes.
+
 ## Hyprland Scroll Flow
 
 Hyprland exposes a native touchpad scroll setting:

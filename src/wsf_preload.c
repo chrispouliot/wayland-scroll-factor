@@ -403,6 +403,7 @@ static void wsf_reload_factors_if_needed(void) {
 		wsf_config_seen = true;
 		wsf_config_present = present;
 		wsf_config_mtime = mtime;
+		wsf_apply_effective_factors(false);
 		return;
 	}
 
@@ -411,13 +412,9 @@ static void wsf_reload_factors_if_needed(void) {
 		changed = !wsf_timespec_equal(mtime, wsf_config_mtime);
 	}
 
-	if (!changed) {
-		return;
-	}
-
 	wsf_config_present = present;
 	wsf_config_mtime = mtime;
-	wsf_apply_effective_factors(true);
+	wsf_apply_effective_factors(changed);
 }
 
 static void *wsf_load_symbol(const char *name) {

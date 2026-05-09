@@ -359,7 +359,9 @@ static int wsf_config_write_all(
 	const char *path = wsf_config_path();
 	char config_dir[PATH_MAX];
 	char base_dir[PATH_MAX];
+	char tmp_path[PATH_MAX];
 	FILE *file = NULL;
+	int fd = -1;
 	int written = 0;
 
 	if (home == NULL || path == NULL) {
@@ -389,8 +391,26 @@ static int wsf_config_write_all(
 		return -1;
 	}
 
-	file = fopen(path, "w");
+	written = snprintf(
+		tmp_path,
+		sizeof(tmp_path),
+		"%s/.config/wayland-scroll-factor/config.tmp.XXXXXX",
+		home
+	);
+	if (written <= 0 || (size_t) written >= sizeof(tmp_path)) {
+		return -1;
+	}
+
+	fd = mkstemp(tmp_path);
+	if (fd < 0) {
+		wsf_debug_log(debug, "failed to create temp config: %s", strerror(errno));
+		return -1;
+	}
+
+	file = fdopen(fd, "w");
 	if (file == NULL) {
+		close(fd);
+		unlink(tmp_path);
 		wsf_debug_log(debug, "failed to write config: %s", strerror(errno));
 		return -1;
 	}
@@ -411,7 +431,29 @@ static int wsf_config_write_all(
 		fprintf(file, "pinch_rotate_factor=%.4f\n", values->pinch_rotate_factor);
 	}
 
-	fclose(file);
+	if (fflush(file) != 0) {
+		wsf_debug_log(debug, "failed to flush config: %s", strerror(errno));
+		fclose(file);
+		unlink(tmp_path);
+		return -1;
+	}
+	if (fsync(fd) != 0) {
+		wsf_debug_log(debug, "failed to sync config: %s", strerror(errno));
+		fclose(file);
+		unlink(tmp_path);
+		return -1;
+	}
+	if (fclose(file) != 0) {
+		wsf_debug_log(debug, "failed to close config: %s", strerror(errno));
+		unlink(tmp_path);
+		return -1;
+	}
+	if (rename(tmp_path, path) != 0) {
+		wsf_debug_log(debug, "failed to replace config: %s", strerror(errno));
+		unlink(tmp_path);
+		return -1;
+	}
+
 	return 0;
 }
 

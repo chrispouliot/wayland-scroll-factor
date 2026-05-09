@@ -33,6 +33,26 @@ WSF is per-user and reversible. It does **not** use `/etc/ld.so.preload`.
 
 ## Install
 
+### Arch Linux / AUR
+
+Stable release:
+
+```bash
+yay -S wayland-scroll-factor
+```
+
+Latest Git build:
+
+```bash
+yay -S wayland-scroll-factor-git
+```
+
+The stable AUR package is recommended for most Arch-based systems. The `-git`
+package follows the latest `main` branch and is better suited for testing fixes
+before the next release.
+
+### Other Distributions
+
 One-shot user install:
 
 ```bash

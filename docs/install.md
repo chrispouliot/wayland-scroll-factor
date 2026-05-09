@@ -1,5 +1,31 @@
 # Install
 
+## Arch Linux / AUR
+
+Stable release:
+
+```
+yay -S wayland-scroll-factor
+```
+
+Latest Git build:
+
+```
+yay -S wayland-scroll-factor-git
+```
+
+Without an AUR helper:
+
+```
+git clone https://aur.archlinux.org/wayland-scroll-factor.git
+cd wayland-scroll-factor
+makepkg -si
+```
+
+Use `wayland-scroll-factor` for normal installs. Use
+`wayland-scroll-factor-git` only if you want the latest `main` branch changes
+before the next release.
+
 ## Build
 
 ```
@@ -34,12 +60,12 @@ This installs:
 - `~/.local/share/applications/io.github.danielgrasso.WaylandScrollFactor.desktop`
 - icons under `~/.local/share/icons/hicolor/`
 
-## Install (Arch package)
+## Build Arch Package From This Repo
 
 From this repo:
 
 ```
-cd packaging/aur
+cd packaging/aur-stable
 makepkg -si
 ```
 

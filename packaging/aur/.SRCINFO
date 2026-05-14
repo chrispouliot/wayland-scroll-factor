@@ -19,6 +19,7 @@ pkgbase = wayland-scroll-factor-git
 	optdepends = hyprland: for Hyprland native scroll and gesture support
 	provides = wayland-scroll-factor
 	conflicts = wayland-scroll-factor
+	options = !debug
 	source = wayland-scroll-factor::git+https://github.com/daniel-g-carrasco/wayland-scroll-factor.git#branch=main
 	sha256sums = SKIP
 

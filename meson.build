@@ -1,7 +1,7 @@
 project(
   'wayland-scroll-factor',
   'c',
-  version: '0.3.0',
+  version: '0.3.1',
   default_options: [
     'warning_level=2',
     'c_std=c11'

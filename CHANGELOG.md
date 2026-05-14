@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 The format is inspired by Keep a Changelog and follows Semantic Versioning for tags.
 
-## [Unreleased]
+## [0.3.1] - 2026-05-14
 
 ### Added
 - Hyprland: install an optional `Hyprland (WSF gestures)` Wayland session and a

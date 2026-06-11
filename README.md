@@ -64,6 +64,9 @@ Testing notes and the Podman smoke-test matrix are documented in
 Packaging notes for AUR, RPM/COPR/OBS, and Debian/Ubuntu/PPA are documented in
 [`docs/packaging.md`](docs/packaging.md).
 
+GitHub Actions runs source builds, distro smoke tests, and package builds on
+pushes and pull requests.
+
 One-shot user install:
 
 ```bash

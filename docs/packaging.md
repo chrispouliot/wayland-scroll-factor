@@ -28,6 +28,10 @@ scripts/test-packages.sh all
 The tests build packages in disposable containers and do not install anything
 on the host.
 
+The same package tests run in GitHub Actions on every push and pull request.
+The workflow uploads RPM and Debian build outputs as temporary artifacts, so
+you can inspect packages without rebuilding them on your laptop.
+
 ## AUR Publishing Worktrees
 
 The live AUR repositories are separate Git repositories. Keep local clones under

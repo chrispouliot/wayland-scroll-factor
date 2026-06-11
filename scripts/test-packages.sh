@@ -13,9 +13,30 @@ No package is installed on the host.
 EOF
 }
 
-if ! command -v podman >/dev/null 2>&1; then
-  echo "podman not found" >&2
+ENGINE="${CONTAINER_ENGINE:-}"
+if [ -z "$ENGINE" ]; then
+  if command -v podman >/dev/null 2>&1; then
+    ENGINE="podman"
+  elif command -v docker >/dev/null 2>&1; then
+    ENGINE="docker"
+  fi
+fi
+
+if [ -z "$ENGINE" ] || ! command -v "$ENGINE" >/dev/null 2>&1; then
+  echo "container engine not found (install podman or docker)" >&2
   exit 1
+fi
+
+RUN_SECURITY_ARGS=()
+if [ "$ENGINE" = "podman" ]; then
+  RUN_SECURITY_ARGS=(--security-opt label=disable)
+fi
+
+OUTDIR="${WSF_PACKAGE_OUTDIR:-}"
+OUT_MOUNT_ARGS=()
+if [ -n "$OUTDIR" ]; then
+  mkdir -p "$OUTDIR"
+  OUT_MOUNT_ARGS=(-v "${OUTDIR}:/out")
 fi
 
 target="${1:-all}"
@@ -40,9 +61,10 @@ run_rpm() {
   local version
   version="$(project_version)"
 
-  podman run --rm \
-    --security-opt label=disable \
+  "$ENGINE" run --rm \
+    "${RUN_SECURITY_ARGS[@]}" \
     -v "${ROOT}:/work:ro" \
+    "${OUT_MOUNT_ARGS[@]}" \
     -w /work \
     docker.io/library/fedora:latest \
     bash -lc "
@@ -62,6 +84,9 @@ run_rpm() {
       cp /work/packaging/rpm/wayland-scroll-factor.spec /tmp/rpmbuild/SPECS/
       rpmbuild --define '_topdir /tmp/rpmbuild' -ba /tmp/rpmbuild/SPECS/wayland-scroll-factor.spec
       find /tmp/rpmbuild/RPMS /tmp/rpmbuild/SRPMS -type f -print
+      if [ -d /out ]; then
+        cp /tmp/rpmbuild/RPMS/*/*.rpm /tmp/rpmbuild/SRPMS/*.rpm /out/
+      fi
     "
 }
 
@@ -69,9 +94,10 @@ run_deb() {
   local version
   version="$(project_version)"
 
-  podman run --rm \
-    --security-opt label=disable \
+  "$ENGINE" run --rm \
+    "${RUN_SECURITY_ARGS[@]}" \
     -v "${ROOT}:/work:ro" \
+    "${OUT_MOUNT_ARGS[@]}" \
     -w /work \
     docker.io/library/debian:stable \
     bash -lc "
@@ -94,6 +120,9 @@ run_deb() {
       cd /tmp/wayland-scroll-factor-${version}
       dpkg-buildpackage -us -uc -b
       find /tmp -maxdepth 1 -type f \\( -name '*.deb' -o -name '*.buildinfo' -o -name '*.changes' \\) -print
+      if [ -d /out ]; then
+        cp /tmp/*.deb /tmp/*.buildinfo /tmp/*.changes /out/
+      fi
     "
 }
 

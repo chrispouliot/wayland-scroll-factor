@@ -1,0 +1,44 @@
+name: Packages
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Build ${{ matrix.target }} package
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - rpm
+          - deb
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build package in container
+        run: |
+          mkdir -p "package-artifacts/${{ matrix.target }}"
+          CONTAINER_ENGINE=docker \
+          WSF_PACKAGE_OUTDIR="$PWD/package-artifacts/${{ matrix.target }}" \
+            scripts/test-packages.sh "${{ matrix.target }}"
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayland-scroll-factor-${{ matrix.target }}-${{ github.sha }}
+          path: package-artifacts/${{ matrix.target }}/*
+          if-no-files-found: error

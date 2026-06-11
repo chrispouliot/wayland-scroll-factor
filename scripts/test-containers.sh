@@ -21,9 +21,23 @@ gesture behavior must still be tested in a real graphical Wayland session.
 EOF
 }
 
-if ! command -v podman >/dev/null 2>&1; then
-  echo "podman not found" >&2
+ENGINE="${CONTAINER_ENGINE:-}"
+if [ -z "$ENGINE" ]; then
+  if command -v podman >/dev/null 2>&1; then
+    ENGINE="podman"
+  elif command -v docker >/dev/null 2>&1; then
+    ENGINE="docker"
+  fi
+fi
+
+if [ -z "$ENGINE" ] || ! command -v "$ENGINE" >/dev/null 2>&1; then
+  echo "container engine not found (install podman or docker)" >&2
   exit 1
+fi
+
+RUN_SECURITY_ARGS=()
+if [ "$ENGINE" = "podman" ]; then
+  RUN_SECURITY_ARGS=(--security-opt label=disable)
 fi
 
 target="${1:-fedora}"
@@ -46,8 +60,8 @@ run_case() {
   local install_cmd="$3"
 
   echo "==> ${name}: ${image}"
-  podman run --rm \
-    --security-opt label=disable \
+  "$ENGINE" run --rm \
+    "${RUN_SECURITY_ARGS[@]}" \
     -v "${ROOT}:/work:ro" \
     -w /work \
     "$image" \

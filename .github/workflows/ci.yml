@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source:
+    name: Source build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build and validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            meson \
+            ninja-build \
+            pkg-config \
+            python3 \
+            python3-gi \
+            gir1.2-adw-1 \
+            libgtk-4-1 \
+            libadwaita-1-0 \
+            desktop-file-utils \
+            appstream
+
+      - name: Check shell scripts
+        run: |
+          find scripts -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+
+      - name: Build
+        run: |
+          meson setup build --prefix=/usr --buildtype=release
+          meson compile -C build
+
+      - name: Validate installed metadata inputs
+        run: |
+          python3 -m py_compile gui/wsf_gui.py
+          desktop-file-validate build/data/io.github.danielgrasso.WaylandScrollFactor.desktop
+          grep '^Exec=' build/data/wayland-scroll-factor-hyprland.desktop
+          grep '^DesktopNames=Hyprland' build/data/wayland-scroll-factor-hyprland.desktop
+          appstreamcli validate --no-net data/io.github.danielgrasso.WaylandScrollFactor.metainfo.xml
+
+      - name: Exercise CLI config I/O
+        run: |
+          mkdir -p "$RUNNER_TEMP/wsf-home"
+          HOME="$RUNNER_TEMP/wsf-home" ./build/tools/wsf set 0.35
+          HOME="$RUNNER_TEMP/wsf-home" ./build/tools/wsf get --json | grep 'scroll_vertical_factor'
+          HOME="$RUNNER_TEMP/wsf-home" ./build/tools/wsf status --json | grep '"config"'
+
+  distro-smoke:
+    name: Distro smoke (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: source
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fedora
+          - ubuntu
+          - debian
+          - arch
+          - opensuse
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run container smoke test
+        run: CONTAINER_ENGINE=docker scripts/test-containers.sh "${{ matrix.target }}"

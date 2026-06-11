@@ -11,6 +11,17 @@ meson compile -C build
 python3 -m py_compile gui/wsf_gui.py
 ```
 
+## GitHub Actions
+
+Every push and pull request runs:
+
+- source build and metadata validation;
+- container smoke tests for Fedora, Ubuntu, Debian, Arch, and openSUSE;
+- RPM and Debian package builds.
+
+Use these workflows as the first validation gate. Local container tests remain
+useful before a release tag or when debugging a distro-specific failure.
+
 ## Container Smoke Tests
 
 Run the build/install smoke matrix when Podman is available:
@@ -23,6 +34,14 @@ These tests cover distro dependency names, Meson build/install, CLI JSON
 output, Python GUI syntax, and installed desktop/metainfo validation. They do
 not replace real GNOME/Hyprland runtime tests.
 
+The scripts use Podman by default when available and fall back to Docker. To
+select an engine explicitly:
+
+```bash
+CONTAINER_ENGINE=docker scripts/test-containers.sh fedora
+CONTAINER_ENGINE=podman scripts/test-containers.sh fedora
+```
+
 ## Package Smoke Tests
 
 Run package build tests when Podman is available:
@@ -33,6 +52,12 @@ scripts/test-packages.sh all
 
 This builds RPM and Debian packages inside disposable containers. It does not
 install packages on the host.
+
+To copy generated packages out of the disposable container:
+
+```bash
+WSF_PACKAGE_OUTDIR="$PWD/package-artifacts" scripts/test-packages.sh all
+```
 
 ## GNOME Wayland
 

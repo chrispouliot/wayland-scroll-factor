@@ -11,6 +11,18 @@ meson compile -C build
 python3 -m py_compile gui/wsf_gui.py
 ```
 
+## Container Smoke Tests
+
+Run the build/install smoke matrix when Podman is available:
+
+```bash
+scripts/test-containers.sh all
+```
+
+These tests cover distro dependency names, Meson build/install, CLI JSON
+output, Python GUI syntax, and installed desktop/metainfo validation. They do
+not replace real GNOME/Hyprland runtime tests.
+
 ## GNOME Wayland
 
 - Install with `./scripts/install.sh`.

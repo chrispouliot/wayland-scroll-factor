@@ -5,5 +5,7 @@
 *.dylib
 *.dll
 *.exe
+__pycache__/
+*.pyc
 *~
 .DS_Store

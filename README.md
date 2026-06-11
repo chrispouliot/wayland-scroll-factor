@@ -58,6 +58,9 @@ Dependency names vary by distribution. See
 names, including Gentoo. In this project, `wsf` means the command installed by
 Wayland Scroll Factor; it is not a separate dependency package.
 
+Testing notes and the Podman smoke-test matrix are documented in
+[`docs/testing.md`](docs/testing.md).
+
 One-shot user install:
 
 ```bash

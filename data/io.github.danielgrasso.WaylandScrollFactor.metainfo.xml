@@ -17,6 +17,17 @@
   <launchable type="desktop-id">io.github.danielgrasso.WaylandScrollFactor.desktop</launchable>
   <url type="homepage">https://github.com/daniel-g-carrasco/wayland-scroll-factor</url>
   <releases>
+    <release version="0.3.3" date="2026-06-11">
+      <description>
+        <p>Packaging and publication release.</p>
+        <ul>
+          <li>release: publish RPM, SRPM, Debian packages, and checksums to GitHub Releases on version tags</li>
+          <li>release: add a manual Fedora COPR publishing workflow</li>
+          <li>packaging: add RPM and Debian packaging templates with containerized build tests</li>
+          <li>docs: clarify distro publication status and package distribution paths</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.2" date="2026-05-19">
       <description>
         <p>Compatibility release for Hyprland 0.55+ Lua configurations.</p>

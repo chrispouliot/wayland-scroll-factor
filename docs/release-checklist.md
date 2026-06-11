@@ -22,6 +22,10 @@ Every push and pull request runs:
 Use these workflows as the first validation gate. Local container tests remain
 useful before a release tag or when debugging a distro-specific failure.
 
+Pushing a `v*` tag runs the `GitHub Release` workflow. It builds RPM, SRPM, and
+Debian packages, generates `SHA256SUMS`, and attaches those files to the GitHub
+Release.
+
 COPR publication is manual:
 
 ```text

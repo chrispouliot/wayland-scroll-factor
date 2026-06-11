@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is inspired by Keep a Changelog and follows Semantic Versioning for tags.
 
+## [0.3.3] - 2026-06-11
+
+### Added
+- GitHub Release automation: pushing a `v*` tag now builds RPM, SRPM, Debian
+  package artifacts, checksum files, and uploads them to the matching GitHub
+  Release.
+- Manual GitHub Actions workflow for publishing generated source RPMs to Fedora
+  COPR once the `COPR_CONFIG` repository secret is configured.
+- RPM and Debian packaging templates, plus containerized package build tests.
+
+### Changed
+- Distribution packaging documentation now distinguishes temporary GitHub
+  Actions artifacts, permanent GitHub Release assets, AUR packages, COPR, OBS,
+  PPA, and official distro repositories.
+
 ## [0.3.2] - 2026-05-19
 
 ### Added

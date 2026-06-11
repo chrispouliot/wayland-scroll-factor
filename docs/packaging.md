@@ -21,7 +21,8 @@ Currently published:
 
 - AUR stable: `wayland-scroll-factor`.
 - AUR development: `wayland-scroll-factor-git`.
-- GitHub Actions package artifacts for RPM and Debian builds.
+- GitHub Release assets for tagged releases.
+- GitHub Actions package artifacts for every push and pull request.
 
 Prepared but not yet published to a distro package repository:
 
@@ -52,7 +53,9 @@ on the host.
 
 The same package tests run in GitHub Actions on every push and pull request.
 The workflow uploads RPM and Debian build outputs as temporary artifacts, so
-you can inspect packages without rebuilding them on your laptop.
+you can inspect packages without rebuilding them on your laptop. Tagged
+releases additionally publish RPM, SRPM, Debian packages, and `SHA256SUMS` as
+permanent GitHub Release assets.
 
 Fedora COPR publishing is documented in [`copr.md`](copr.md). The repository
 includes a manual GitHub Actions workflow that submits the generated source RPM
@@ -99,4 +102,5 @@ them through its own process.
 - Update AUR stable `pkgver`, checksum, and `.SRCINFO`.
 - Run `scripts/test-containers.sh all`.
 - Run `scripts/test-packages.sh all`.
-- Publish GitHub release artifacts if desired.
+- Push the `v*` tag and verify the `GitHub Release` workflow uploaded package
+  assets and `SHA256SUMS`.

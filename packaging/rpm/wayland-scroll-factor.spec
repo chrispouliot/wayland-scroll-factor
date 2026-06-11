@@ -1,5 +1,5 @@
 Name:           wayland-scroll-factor
-Version:        0.3.2
+Version:        0.3.3
 Release:        1%{?dist}
 Summary:        Touchpad scroll and gesture tuning for Wayland
 
@@ -63,5 +63,9 @@ appstreamcli validate --no-net data/io.github.danielgrasso.WaylandScrollFactor.m
 %{_datadir}/wayland-scroll-factor/hyprland/wsf.lua
 
 %changelog
+* Thu Jun 11 2026 Daniel Grasso <daniel@the-empty.place> - 0.3.3-1
+- Add GitHub Release asset workflow and package publication documentation.
+- Add RPM and Debian package build test automation.
+
 * Thu Jun 11 2026 Daniel Grasso <daniel@the-empty.place> - 0.3.2-1
 - Initial RPM packaging template.

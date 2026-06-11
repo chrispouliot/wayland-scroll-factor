@@ -1,3 +1,10 @@
+wayland-scroll-factor (0.3.3-1) unstable; urgency=medium
+
+  * Add GitHub Release asset workflow and package publication documentation.
+  * Add RPM and Debian package build test automation.
+
+ -- Daniel Grasso <daniel@the-empty.place>  Thu, 11 Jun 2026 12:45:00 +0200
+
 wayland-scroll-factor (0.3.2-1) unstable; urgency=medium
 
   * Initial Debian packaging template.

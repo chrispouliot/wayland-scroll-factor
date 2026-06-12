@@ -17,8 +17,6 @@
 
       systemAgnostic = {
         nixosModules = rec {
-          # Wrap the module so it works without the overlay: default the
-          # package to this flake's own build for the host system.
           default = { pkgs, lib, ... }: {
             imports = [ module ];
             programs.wsf.package = lib.mkDefault
@@ -35,8 +33,6 @@
         };
       };
 
-      # Linux only: libinput + GNOME stack don't exist on darwin, and
-      # eachDefaultSystem would make `nix flake check` fail there.
       perSystem = flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" ] (system:
         let
           pkgs = import nixpkgs { inherit system; };

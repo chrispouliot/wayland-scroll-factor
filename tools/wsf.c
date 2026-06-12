@@ -1462,7 +1462,9 @@ static int wsf_cmd_status(bool json) {
 		}
 
 		printf("{");
-		printf("\"enabled\":%s,", env_present ? "true" : "false");
+		printf("\"enabled\":%s,",
+			(env_present || runtime.user_manager_matches) ?
+			"true" : "false");
 		printf("\"env_file\":");
 		wsf_print_json_string(env_path);
 		printf(",");
@@ -1509,7 +1511,13 @@ static int wsf_cmd_status(bool json) {
 		return 0;
 	}
 
-	printf("enabled: %s\n", env_present ? "yes" : "no");
+	if (env_present) {
+		printf("enabled: yes\n");
+	} else if (runtime.user_manager_matches) {
+		printf("enabled: yes (system environment.d)\n");
+	} else {
+		printf("enabled: no\n");
+	}
 	printf("env file: %s (%s)\n", env_path, env_present ? "present" : "missing");
 	printf("library: %s (%s)\n", lib_path, lib_present ? "present" : "missing");
 	if (runtime.user_manager_ld_preload_present) {

@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include "wsf_config.h"
+#include "wsf_proc.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -1461,7 +1462,9 @@ static int wsf_cmd_status(bool json) {
 		}
 
 		printf("{");
-		printf("\"enabled\":%s,", env_present ? "true" : "false");
+		printf("\"enabled\":%s,",
+			(env_present || runtime.user_manager_matches) ?
+			"true" : "false");
 		printf("\"env_file\":");
 		wsf_print_json_string(env_path);
 		printf(",");
@@ -1508,7 +1511,13 @@ static int wsf_cmd_status(bool json) {
 		return 0;
 	}
 
-	printf("enabled: %s\n", env_present ? "yes" : "no");
+	if (env_present) {
+		printf("enabled: yes\n");
+	} else if (runtime.user_manager_matches) {
+		printf("enabled: yes (system environment.d)\n");
+	} else {
+		printf("enabled: no\n");
+	}
 	printf("env file: %s (%s)\n", env_path, env_present ? "present" : "missing");
 	printf("library: %s (%s)\n", lib_path, lib_present ? "present" : "missing");
 	if (runtime.user_manager_ld_preload_present) {
@@ -1675,32 +1684,6 @@ static bool wsf_systemd_user_env_value(
 	return found;
 }
 
-static bool wsf_read_pid_comm(pid_t pid, char *buf, size_t len) {
-	char path[64];
-	FILE *file = NULL;
-
-	if (buf == NULL || len == 0 || pid <= 0) {
-		return false;
-	}
-
-	if (snprintf(path, sizeof(path), "/proc/%d/comm", (int) pid) >= (int) sizeof(path)) {
-		return false;
-	}
-
-	file = fopen(path, "r");
-	if (file == NULL) {
-		return false;
-	}
-
-	if (fgets(buf, (int) len, file) == NULL) {
-		fclose(file);
-		return false;
-	}
-
-	fclose(file);
-	buf[strcspn(buf, "\n")] = '\0';
-	return true;
-}
 
 static bool wsf_find_newest_pid_by_name(const char *name, pid_t *out_pid) {
 	DIR *dir = NULL;
@@ -1719,7 +1702,6 @@ static bool wsf_find_newest_pid_by_name(const char *name, pid_t *out_pid) {
 	while ((entry = readdir(dir)) != NULL) {
 		char *end = NULL;
 		long pid_long = 0;
-		char comm[128];
 
 		if (!isdigit((unsigned char) entry->d_name[0])) {
 			continue;
@@ -1732,10 +1714,7 @@ static bool wsf_find_newest_pid_by_name(const char *name, pid_t *out_pid) {
 		if (pid_long <= 0 || pid_long > INT_MAX) {
 			continue;
 		}
-		if (!wsf_read_pid_comm((pid_t) pid_long, comm, sizeof(comm))) {
-			continue;
-		}
-		if (strcmp(comm, name) != 0) {
+		if (!wsf_proc_pid_matches((int) pid_long, name)) {
 			continue;
 		}
 		if ((pid_t) pid_long > best) {

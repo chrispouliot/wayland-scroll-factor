@@ -107,7 +107,8 @@ This currently targets `amd64`.
 
 The project is available via a Nix flake from this repository. Add it to your flake.nix file like so
 
-```
+```nix
+
 {
   description = "WSF Flake";
   inputs = {
